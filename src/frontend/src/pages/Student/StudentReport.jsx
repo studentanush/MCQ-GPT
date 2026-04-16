@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import api from '../../services/api';
 import './StudentReport.css';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
 const StudentReport = () => {
-  const { quizId } = useParams();
+  const { submissionId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const reportRef = useRef();
@@ -18,106 +19,18 @@ const StudentReport = () => {
   const [downloadingPDF, setDownloadingPDF] = useState(false);
   const [downloadingSolutions, setDownloadingSolutions] = useState(false);
 
-  // ==================== MOCK DATA (Replace with API) ====================
-  const mockReportData = {
-    submissionId: 'sub_123456789',
-    quizId: quizId,
-    quizTitle: 'Physics - Motion and Forces Quiz',
-    studentName: 'Alex Johnson',
-    studentId: 'STU2024001',
-    className: 'Physics 101',
-    teacher: 'Dr. Johnson',
-    submittedAt: '2024-12-08T14:30:00Z',
-    timeTaken: '25:30', // 25 minutes 30 seconds
-    totalQuestions: 25,
-    attempted: 22,
-    correctAnswers: 18,
-    wrongAnswers: 4,
-    skipped: 3,
-    score: 72,
-    totalMarks: 25,
-    percentage: 72,
-    grade: 'B',
-    rank: '15 out of 45',
-    
-    // Question-wise analysis
-    questions: Array.from({ length: 25 }, (_, i) => ({
-      id: i + 1,
-      question: `Question ${i + 1}: A car accelerates uniformly from 0 to ${72 + i} km/h in 10 seconds. What is the acceleration?`,
-      type: i % 5 === 0 ? 'voice' : 'mcq',
-      studentAnswer: i < 18 ? 'a' : i < 22 ? 'b' : null, // 18 correct, 4 wrong, 3 skipped
-      correctAnswer: 'a',
-      isCorrect: i < 18,
-      marks: 1,
-      awardedMarks: i < 18 ? 1 : 0,
-      difficulty: ['Easy', 'Medium', 'Hard'][i % 3],
-      topic: ['Motion', 'Forces', 'Energy'][i % 3],
-      solution: `Solution: Convert ${72 + i} km/h to m/s = ${(72 + i) * 5/18} m/s. Acceleration = (final velocity - initial velocity)/time = (${(72 + i) * 5/18} - 0)/10 = ${((72 + i) * 5/18)/10} m/s² ≈ ${2 + i * 0.5} m/s².`,
-      explanation: 'This question tests understanding of uniform acceleration and unit conversion from km/h to m/s.'
-    })),
-    
-    // Topic-wise analysis
-    topics: [
-      { name: 'Motion', total: 9, correct: 7, percentage: 77.8 },
-      { name: 'Forces', total: 8, correct: 6, percentage: 75.0 },
-      { name: 'Energy', total: 8, correct: 5, percentage: 62.5 }
-    ],
-    
-    // Question type analysis
-    questionTypes: [
-      { type: 'MCQ', total: 20, correct: 16, percentage: 80.0 },
-      { type: 'Voice', total: 5, correct: 2, percentage: 40.0 }
-    ],
-    
-    // Difficulty analysis
-    difficulties: [
-      { level: 'Easy', total: 9, correct: 8, percentage: 88.9 },
-      { level: 'Medium', total: 10, correct: 7, percentage: 70.0 },
-      { level: 'Hard', total: 6, correct: 3, percentage: 50.0 }
-    ],
-    
-    // AI Insights
-    aiInsights: {
-      strengths: [
-        'Strong understanding of motion concepts',
-        'Good at unit conversions',
-        'Excellent time management during quiz'
-      ],
-      weaknesses: [
-        'Need improvement in force-related problems',
-        'Struggles with voice response questions',
-        'Should review energy conservation laws'
-      ],
-      recommendations: [
-        'Practice force diagrams and free-body diagrams',
-        'Review Newton\'s Laws of Motion',
-        'Focus on energy conservation problems',
-        'Improve verbal explanation skills for voice questions'
-      ],
-      overallAssessment: 'You performed well overall with a solid grasp of basic concepts. Focus on your weaker areas to improve your score next time.'
-    },
-    
-    // Comparison with class
-    classStats: {
-      averageScore: 65,
-      highestScore: 95,
-      medianScore: 68,
-      yourPercentile: 75
-    }
-  };
+
 
   // ==================== API FUNCTIONS ====================
-  const fetchReportData = async () => {
+  const fetchReportData = async (subId) => {
+    if (!subId) throw new Error("No submission ID provided.");
     try {
       setLoading(true);
-      
-      // Mock delay to simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return mockReportData;
-      
+      const response = await api.get(`/quizzes/report/${subId}`);
+      return response.data;
     } catch (err) {
       console.error('Error fetching report:', err);
-      throw err;
+      throw new Error(err.response?.data?.message || err.message);
     } finally {
       setLoading(false);
     }
@@ -127,20 +40,23 @@ const StudentReport = () => {
   useEffect(() => {
     const loadReport = async () => {
       try {
-        const data = await fetchReportData();
+        const subId = submissionId || location.state?.submissionId;
+        if (!subId) {
+             setError("Report identifier missing.");
+             setLoading(false);
+             return;
+        }
+        
+        const data = await fetchReportData(subId);
         setReportData(data);
         
-        // If coming from quiz submission, show submission details
-        if (location.state) {
-          console.log('Submission data:', location.state);
-        }
       } catch (err) {
         setError(err.message);
       }
     };
 
     loadReport();
-  }, [quizId, location.state]);
+  }, [submissionId, location.state]);
 
   // ==================== PDF GENERATION ====================
   const generatePDFReport = async () => {
@@ -312,6 +228,13 @@ const StudentReport = () => {
     });
   };
 
+  const getScoreClass = (percentage) => {
+    if (percentage >= 80) return 'score-excellent';
+    if (percentage >= 60) return 'score-good';
+    if (percentage >= 40) return 'score-average';
+    return 'score-poor';
+  };
+
   const getScoreColor = (percentage) => {
     if (percentage >= 80) return '#00ff88';
     if (percentage >= 60) return '#4cc9f0';
@@ -319,14 +242,14 @@ const StudentReport = () => {
     return '#ff6b6b';
   };
 
-  const getGradeColor = (grade) => {
+  const getGradeClass = (grade) => {
     switch(grade) {
-      case 'A': return '#00ff88';
-      case 'B': return '#4cc9f0';
-      case 'C': return '#ffd166';
-      case 'D': return '#ffa726';
-      case 'F': return '#ff6b6b';
-      default: return '#8a2be2';
+      case 'A': return 'grade-a';
+      case 'B': return 'grade-b';
+      case 'C': return 'grade-c';
+      case 'D': return 'grade-d';
+      case 'F': return 'grade-f';
+      default: return 'grade-default';
     }
   };
 
@@ -407,7 +330,7 @@ const StudentReport = () => {
       {/* Quick Stats Bar */}
       <div className="quick-stats-bar">
         <div className="stat-item">
-          <div className="stat-value" style={{ color: getScoreColor(reportData.percentage) }}>
+          <div className={`stat-value ${getScoreClass(reportData.percentage)}`}>
             {reportData.percentage}%
           </div>
           <div className="stat-label">Score</div>
@@ -423,7 +346,7 @@ const StudentReport = () => {
         <div className="stat-divider"></div>
         
         <div className="stat-item">
-          <div className="stat-value" style={{ color: getGradeColor(reportData.grade) }}>
+          <div className={`stat-value ${getGradeClass(reportData.grade)}`}>
             {reportData.grade}
           </div>
           <div className="stat-label">Grade</div>
@@ -542,7 +465,7 @@ const StudentReport = () => {
                       <div key={index} className="topic-card">
                         <div className="topic-header">
                           <span className="topic-name">{topic.name}</span>
-                          <span className="topic-percentage" style={{ color: getScoreColor(topic.percentage) }}>
+                          <span className={`topic-percentage ${getScoreClass(topic.percentage)}`}>
                             {topic.percentage}%
                           </span>
                         </div>
@@ -555,9 +478,9 @@ const StudentReport = () => {
                           <div 
                             className="topic-progress-fill"
                             style={{ 
-                              width: `${topic.percentage}%`,
-                              backgroundColor: getScoreColor(topic.percentage)
+                              width: `${topic.percentage}%`
                             }}
+                            className={`topic-progress-fill ${getScoreClass(topic.percentage)}`}
                           ></div>
                         </div>
                       </div>
@@ -581,9 +504,9 @@ const StudentReport = () => {
                           <div 
                             className="type-progress-fill"
                             style={{ 
-                              width: `${type.percentage}%`,
-                              backgroundColor: getScoreColor(type.percentage)
+                              width: `${type.percentage}%`
                             }}
+                            className={`type-progress-fill ${getScoreClass(type.percentage)}`}
                           ></div>
                         </div>
                       </div>
@@ -812,7 +735,7 @@ const StudentReport = () => {
                   <div className="comparison-stats">
                     <div className="comparison-item">
                       <div className="comparison-label">Your Score</div>
-                      <div className="comparison-value" style={{ color: getScoreColor(reportData.percentage) }}>
+                      <div className={`comparison-value ${getScoreClass(reportData.percentage)}`}>
                         {reportData.percentage}%
                       </div>
                     </div>
@@ -850,7 +773,7 @@ const StudentReport = () => {
           <div className="performance-card">
             <div className="performance-header">
               <h3>Performance Summary</h3>
-              <div className="performance-grade" style={{ color: getGradeColor(reportData.grade) }}>
+              <div className={`performance-grade ${getGradeClass(reportData.grade)}`}>
                 {reportData.grade}
               </div>
             </div>
@@ -858,7 +781,7 @@ const StudentReport = () => {
             <div className="performance-metrics">
               <div className="metric">
                 <div className="metric-label">Overall Score</div>
-                <div className="metric-value" style={{ color: getScoreColor(reportData.percentage) }}>
+                <div className={`metric-value ${getScoreClass(reportData.percentage)}`}>
                   {reportData.percentage}%
                 </div>
               </div>
@@ -880,7 +803,13 @@ const StudentReport = () => {
               <div className="metric">
                 <div className="metric-label">Time Efficiency</div>
                 <div className="metric-value">
-                  {Math.round(reportData.correctAnswers / (parseInt(reportData.timeTaken) / 60))}/min
+                  {(() => {
+                    const timeMatch = reportData.timeTaken?.match(/(\d+)m\s+(\d+)s/);
+                    const totalSecs = timeMatch ? (parseInt(timeMatch[1]) * 60 + parseInt(timeMatch[2])) : 0;
+                    if (totalSecs <= 0) return '—';
+                    const perMin = Math.round((reportData.correctAnswers / (totalSecs / 60)) * 10) / 10;
+                    return `${perMin}/min`;
+                  })()}
                 </div>
               </div>
             </div>

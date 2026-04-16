@@ -1,8 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import './AttendQuiz.css';
 import { playerSocket } from '../../socket';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
+
+const API_BASE = 'http://localhost:5000/api';
+
+// Parse "20 mins" or "20" → seconds
+const parseTimeToSeconds = (timeStr) => {
+  if (!timeStr) return 1800;
+  const num = parseInt(String(timeStr).replace(/\D/g, ''), 10);
+  return isNaN(num) ? 1800 : num * 60;
+};
 
 const AttendQuiz = () => {
   const { quizId } = useParams();
@@ -10,49 +20,75 @@ const AttendQuiz = () => {
 
   const [players, setPlayers] = useState([]);
   const [play, setPlay] = useState(false);
-
   useEffect(() => {
+    // Connect socket on mount
+    playerSocket.connect();
+
     joinRoom();
+
     playerSocket.on("getQuizDetails", (details) => {
       try {
-
-        //setQuiz(details);
         setQuizData(details);
-        setQuestions(details?.questions);
-        setTimeLeft(details?.time * 60); // Convert minutes to seconds
+        setQuestions(details?.questions || []);
+        // ✅ FIXED: Parse time string properly ("20 mins" → 1200 seconds)
+        setTimeLeft(parseTimeToSeconds(details?.time));
 
-        // Initialize question status
         const initialStatus = {};
-        details.questions.forEach((question) => {
+        (details.questions || []).forEach((question) => {
           initialStatus[question._id] = {
             answered: false,
             skipped: false,
             marked: false,
             selectedOption: null,
             voiceAnswer: null,
-            // Load previously saved answers if any
-            // ...(question.savedAnswer && {
-            //   answered: true,
-            //   selectedOption: question.savedAnswer,
-            // }),
           };
         });
         setQuestionStatus(initialStatus);
       } catch (error) {
-        console.log(error);
+        console.error('getQuizDetails error:', error);
       }
-
-      console.log(details)
-    })
-    playerSocket.on("updatePlayers", (players) => {
-      setPlayers(players);
-    });
-    playerSocket.on("quizStarted", (play) => {
-      setPlay(play);
-      console.log(play)
     });
 
-  }, [])
+    playerSocket.on("updatePlayers", (updatedPlayers) => {
+      setPlayers(updatedPlayers);
+    });
+
+    playerSocket.on("quizStarted", (started) => {
+      setPlay(started);
+    });
+
+    // Live quiz: educator sends each question one-by-one
+    playerSocket.on("newQuestion", ({ question, options, index, totalTime }) => {
+      // In live mode, sync with educator's current question
+      setCurrentQuestion(index);
+      setCurrentQuestionTime(totalTime);
+      setTimeLeft(totalTime); // Sync the main countdown timer
+      setSelectedOption(null);
+      setTranscript('');
+      setQuestionStartTime(Date.now());
+      toast.info(`Question ${index + 1} started!`);
+    });
+
+    playerSocket.on("questionTimeUp", () => {
+      toast.warning("Time's up for this question!");
+      setCurrentQuestionTime(0);
+    });
+
+    playerSocket.on("quizEnded", ({ leaderboard }) => {
+      toast.info("Quiz ended by host!");
+      setTimeout(() => navigate('/student/dashboard'), 2000);
+    });
+
+    return () => {
+      playerSocket.off("getQuizDetails");
+      playerSocket.off("updatePlayers");
+      playerSocket.off("quizStarted");
+      playerSocket.off("newQuestion");
+      playerSocket.off("questionTimeUp");
+      playerSocket.off("quizEnded");
+      playerSocket.disconnect();
+    };
+  }, []);
   //console.log("in"+ play)
   const joinRoom = () => {
     const studentDetail = JSON.parse(sessionStorage.getItem('stu_info'));
@@ -92,6 +128,8 @@ const AttendQuiz = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [questionStartTime, setQuestionStartTime] = useState(Date.now());
+  const [currentQuestionTime, setCurrentQuestionTime] = useState(0);
 
   // ==================== BACKEND INTEGRATION FUNCTIONS ====================
 
@@ -99,16 +137,10 @@ const AttendQuiz = () => {
     try {
       setLoading(true);
       setError(null);
-
-      // REAL API CALL - UNCOMMENT WHEN READY:
-      // const response = await fetch(`/api/quizzes/${quizId}`);
-      // if (!response.ok) throw new Error('Failed to fetch quiz');
-      // const data = await response.json();
-      // return data;
-
-      // MOCK DATA FOR DEVELOPMENT:
-      return mockFetchQuiz(quizId);
-
+      const response = await api.get(`/quizzes/getQuiz`, { params: { id: quizId } });
+      const data = response.data[0]; // Backend returns array for getQuiz
+      if (!data) throw new Error('Quiz not found');
+      return data;
     } catch (err) {
       console.error('Error fetching quiz:', err);
       setError(err.message);
@@ -121,29 +153,26 @@ const AttendQuiz = () => {
   const submitAnswersToBackend = async (quizId, answers) => {
     try {
       setSubmitting(true);
+      const timeSpent = Math.max(0, parseTimeToSeconds(quizData?.time) - timeLeft);
 
-      // REAL API CALL - UNCOMMENT WHEN READY:
-      // const response = await fetch(`/api/quizzes/${quizId}/submit`, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${localStorage.getItem('token')}`
-      //   },
-      //   body: JSON.stringify({
-      //     studentId: localStorage.getItem('studentId'),
-      //     answers: answers,
-      //     timeSpent: 1800 - timeLeft,
-      //     submittedAt: new Date().toISOString()
-      //   })
-      // });
-      // 
-      // if (!response.ok) throw new Error('Submission failed');
-      // const result = await response.json();
-      // return result;
+      const response = await api.post(
+        `/quizzes/storeParticipants`,
+        {
+          quizID: quizData?._id || quizId,
+          timeTaken: `${Math.floor(timeSpent / 60)}m ${timeSpent % 60}s`,
+          studentResponse: answers,
+        }
+      );
 
-      // MOCK SUBMISSION FOR DEVELOPMENT:
-      return mockSubmitQuiz(quizId, answers);
-
+      return {
+        submissionId: response.data.submissionId,
+        quizId: quizData?._id || quizId,
+        score: response.data.score,
+        total: response.data.total,
+        submittedAt: new Date().toISOString(),
+        timeSpent,
+        message: 'Quiz submitted successfully!',
+      };
     } catch (err) {
       console.error('Error submitting quiz:', err);
       throw err;
@@ -153,24 +182,8 @@ const AttendQuiz = () => {
   };
 
   const saveAnswerToBackend = async (questionId, answer) => {
-    try {
-      // REAL API CALL - UNCOMMENT WHEN READY:
-      // await fetch(`/api/quizzes/${quizId}/answers/${questionId}`, {
-      //   method: 'PUT',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${localStorage.getItem('token')}`
-      //   },
-      //   body: JSON.stringify({
-      //     answer: answer,
-      //     timestamp: new Date().toISOString()
-      //   })
-      // });
-
-      console.log('Auto-saved answer:', { questionId, answer });
-    } catch (err) {
-      console.error('Error auto-saving answer:', err);
-    }
+    // Auto-save (non-critical, fire and forget)
+    console.debug('Auto-saved answer:', { questionId, answer });
   };
 
   // ==================== INITIALIZATION ====================
@@ -215,6 +228,7 @@ const AttendQuiz = () => {
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
+          clearInterval(timer);
           handleAutoSubmit();
           return 0;
         }
@@ -223,7 +237,7 @@ const AttendQuiz = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeft, quizData]);
+  }, [quizData]); // Omit timeLeft so interval doesn't re-render and drift
 
   // ==================== UTILITY FUNCTIONS ====================
 
@@ -269,7 +283,18 @@ const AttendQuiz = () => {
       [questionId]: newStatus
     }));
 
-    // Auto-save to backend
+    // If live quiz, emit answer to educator's live leaderboard
+    const timeTaken = (Date.now() - questionStartTime) / 1000;
+    playerSocket.emit("submitAnswer", {
+      roomCode: quizId,
+      answer: optionId,
+      timeTaken,
+      totalTime: currentQuestionTime || 30 // Fallback or use live question time
+    }, (res) => {
+        if (res.error) console.error("Live submit error:", res.error);
+    });
+
+    // Auto-save to backend (for report persistence)
     await saveAnswerToBackend(questionId, optionId);
   };
 
@@ -476,89 +501,34 @@ const AttendQuiz = () => {
 
     try {
       // Prepare answers for backend
-      const answers = Object.entries(questionStatus).map(([questionId, status]) => ({
-        questionId,
-        answer: status.selectedOption || status.voiceAnswer,
-        status: status.answered ? 'answered' : 'skipped',
-        marked: status.marked,
-        timestamp: new Date().toISOString(),
-      }));
-      console.log(answers);
-      // Submit to backend
-
-      console.log(quizData)
-      const result = await submitAnswersToBackend(quizId, answers);
-
-      // Redirect to report page
-      navigate(`/student-report/${quizId}`, {
-        state: {
-          submissionId: result.submissionId,
-          score: result.score,
-          total: result.total,
-        }
+      const answers = questions.map((q) => {
+        const status = questionStatus[q._id] || {};
+        return {
+          questionId: q._id,
+          answer: status.selectedOption || status.voiceAnswer || null,
+          status: status.answered ? 'answered' : 'skipped',
+          marked: status.marked || false,
+          timestamp: new Date().toISOString(),
+        };
       });
 
+      const result = await submitAnswersToBackend(quizId, answers);
+
+      toast.success('Quiz submitted!');
+      // Redirect to student report page
+      navigate(`/student/report/${result.submissionId}`, {
+        state: {
+          quizId: quizData?._id,
+        }
+      });
     } catch (err) {
-      alert(`Submission failed: ${err.message}\nPlease try again.`);
+      alert(`Submission failed: ${err.message || 'Unknown error'}\nPlease try again.`);
     }
   };
 
   // ==================== MOCK DATA FUNCTIONS ====================
 
-  const mockFetchQuiz = (quizId) => {
-    // Generate 25 questions for testing
-    const questions = Array.from({ length: 25 }, (_, i) => ({
-      id: `q${i + 1}`,
-      text: `A car accelerates uniformly from 0 to ${72 + i} km/h in 10 seconds. What is the acceleration?`,
-      options: [
-        { id: 'a', text: `${2 + i * 0.5} m/s²` },
-        { id: 'b', text: `${5 + i * 0.5} m/s²` },
-        { id: 'c', text: `${7.2 + i * 0.5} m/s²` },
-        { id: 'd', text: `${10 + i * 0.5} m/s²` }
-      ],
-      type: i % 8 === 0 ? 'voice' : 'mcq', // Every 8th question is voice
-      correctAnswer: 'a',
-      marks: 1,
-      difficulty: i % 3 === 0 ? 'easy' : i % 3 === 1 ? 'medium' : 'hard',
-      category: ['Motion', 'Forces', 'Energy'][i % 3],
-    }));
 
-    return {
-      id: quizId,
-      title: 'Physics - Motion and Forces Quiz',
-      teacher: 'Dr. Johnson',
-      totalQuestions: 25,
-      duration: 45, // minutes
-      instructions: [
-        'Answer all questions',
-        'You can skip and return to questions',
-        'Voice questions require recording',
-        'Timer will auto-submit when time ends'
-      ],
-      questions: questions,
-      createdAt: '2024-01-15T10:30:00Z',
-      expiresAt: '2024-12-31T23:59:59Z',
-    };
-  };
-
-  const mockSubmitQuiz = (quizId, answers) => {
-    console.log('Mock submission:', { quizId, answers });
-
-    // Simulate API delay
-    return new Promise(resolve => {
-      setTimeout(() => {
-        resolve({
-          submissionId: `sub_${Date.now()}`,
-          quizId: quizId,
-          score: Math.floor(Math.random() * 25),
-          total: 25,
-          submittedAt: new Date().toISOString(),
-          timeSpent: 1800 - timeLeft,
-          message: 'Quiz submitted successfully!',
-        });
-      }, 1500);
-    });
-  };
 
   // ==================== RENDER ====================
 
@@ -732,44 +702,26 @@ const AttendQuiz = () => {
                 </div>
 
                 {/* MCQ Options */}
-                {currentQ.type === 'mcq' && currentQ.options.length > 0 && (
+                {(currentQ.type === 'mcq' || currentQ.type === 'scq') && currentQ.options?.length > 0 && (
                   <div className="options-container">
-                    // Assume currentQ.options is an array of strings: ['Option A Text', 'Option B Text', ...]
+                    {currentQ.options.map((optionText, index) => {
+                      const optionId = String.fromCharCode(97 + index);
+                      const isSelected = selectedOption === optionId;
 
-                    {currentQ.type === 'mcq' && currentQ.options?.length > 0 && (
-                      <div className="options-container">
-                        {currentQ.options.map((optionText, index) => {
-
-                          // 1. Generate the unique ID for tracking (e.g., 'a', 'b', 'c')
-                          const optionId = String.fromCharCode(97 + index);
-
-                          // 2. Check if this generated ID matches the selected state
-                          const isSelected = selectedOption === optionId;
-
-                          return (
-                            <label
-                              // Use the generated ID as the key
-                              key={optionId}
-                              // Apply 'selected' class if it matches the state
-                              className={`option-card ${isSelected ? 'selected' : ''}`}
-                              // Pass the generated ID to the handler
-                              onClick={() => handleOptionSelect(optionId)}
-                            >
-                              {/* Display the letter ID (A, B, C...) */}
-                              <div className="option-label">{optionId.toUpperCase()}</div>
-
-                              {/* Display the option string content */}
-                              <div className="option-content">{optionText}</div>
-
-                              {/* Display checkmark if selected */}
-                              {isSelected && (
-                                <div className="option-checkmark">✓</div>
-                              )}
-                            </label>
-                          );
-                        })}
-                      </div>
-                    )}
+                      return (
+                        <label
+                          key={optionId}
+                          className={`option-card ${isSelected ? 'selected' : ''}`}
+                          onClick={() => handleOptionSelect(optionId)}
+                        >
+                          <div className="option-label">{optionId.toUpperCase()}</div>
+                          <div className="option-content">{optionText}</div>
+                          {isSelected && (
+                            <div className="option-checkmark">✓</div>
+                          )}
+                        </label>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -878,13 +830,14 @@ const AttendQuiz = () => {
                   style={{ gridTemplateColumns: `repeat(${gridCols}, 1fr)` }}
                 >
                   {questions.map((question, index) => {
-                    const status = getQuestionStatus(question.id);
+                    // ✅ FIXED: use _id (MongoDB), not question.id (doesn't exist)
+                    const status = getQuestionStatus(question._id);
                     const isCurrent = index === currentQuestion;
-                    const isQuestionMarked = questionStatus[question.id]?.marked || false;
+                    const isQuestionMarked = questionStatus[question._id]?.marked || false;
 
                     return (
                       <button
-                        key={question.id}
+                        key={question._id}
                         className={`palette-btn ${status} ${isCurrent ? 'active' : ''} ${isQuestionMarked ? 'marked-badge' : ''}`}
                         onClick={() => !submitting && goToQuestion(index)}
                         disabled={submitting}

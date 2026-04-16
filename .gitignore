@@ -10,6 +10,7 @@ pnpm-debug.log*
 # Environment files
 .env
 .env.local
+.env.*.local
 
 # Dist / Build
 dist/
@@ -18,12 +19,25 @@ build/
 # Vite
 .vite/
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+.ipynb_checkpoints/
+
+# User Uploads (DO NOT PUSH SENSITIVE DOCUMENTS)
+src/backend/uploads/
+
 # IDE files
 .vscode/
+.idea/
 .DS_Store
+*.swp
 
-# Frontend specific
-
-
-# Backend specific
-
+# Antigravity / Agentic Artifacts
+.gemini/
+.antigravity/

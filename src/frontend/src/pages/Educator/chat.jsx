@@ -4,7 +4,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
-import axios from 'axios';
+import api from '../../services/api';
+import { useNavigate } from 'react-router-dom';
 
 function Chat() {
   const [messages, setMessages] = useState([
@@ -27,7 +28,7 @@ function Chat() {
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
-
+  const navigate = useNavigate();
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -57,61 +58,41 @@ function Chat() {
   const callLLM = async (userPrompt, context) => {
     const prompt = userPrompt.toLowerCase();
 
-    if (prompt.match(/^(hi|hello|hey|greetings)/)) {
-      return "Hello! How can I help you today? If you'd like to generate a quiz, please upload a document first.";
-    }
-
-    if (prompt.includes('help') || prompt.includes('how')) {
-      return "I can help you generate quizzes from your documents! Here's how:\n1. Upload a PDF, DOCX, or TXT file\n2. Tell me how many questions you want (minimum 5)\n3. I'll generate a comprehensive quiz for you\n\nYou can also ask me to regenerate questions or modify the quiz.";
-    }
-
-    if (context.hasFile && !prompt.match(/\d+\s*(questions?|quiz)/)) {
-      return "Please stay contextual to the uploaded document. Text prompts are disabled while a document is attached.";
-    }
-
+    // Check for explicit generation commands first
     if (!context.hasFile && prompt.match(/\d+\s*(questions?|quiz)/)) {
-      // FIX: Instead of saying "upload document", handle text prompts
       const numberMatch = prompt.match(/(\d+)\s*(questions?|quiz)?/);
       if (numberMatch) {
         const num = parseInt(numberMatch[1]);
-        if (num < 5) {
-          return "I need to generate at least 5 questions. Please request 5 or more questions.";
-        }
-        return `generate_text:${num}`;  // New: for text-based generation
+        if (num >= 5) return `generate_text:${num}`;
       }
     }
 
-    if (prompt.includes('regenerate') || prompt.includes('try again') || prompt.includes('redo')) {
-      if (context.lastQuizParams) {
-        return `regenerate:${context.lastQuizParams.numQuestions}`;
-      } else {
-        return "I don't have any previous quiz to regenerate. Please tell me how many questions you'd like to generate.";
-      }
-    }
-
-    if (prompt.includes('more questions') || prompt.includes('add more')) {
-      return "Sure! How many additional questions would you like me to generate?";
-    }
-
-    if (prompt.includes('easier') || prompt.includes('harder') || prompt.includes('difficulty')) {
-      return "I understand you'd like questions with different difficulty. Please specify how many questions you need, and I'll generate a new quiz.";
+    if (prompt.includes('regenerate') || prompt.includes('try again')) {
+      if (context.lastQuizParams) return `regenerate:${context.lastQuizParams.numQuestions}`;
     }
 
     const numberMatch = prompt.match(/(\d+)\s*(questions?|quiz)?/);
     if (numberMatch && context.hasFile) {
       const num = parseInt(numberMatch[1]);
-      if (num < 5) {
-        return "I need to generate at least 5 questions. Please request 5 or more questions.";
-      }
-      return `generate:${num}`;
+      if (num >= 5) return `generate:${num}`;
     }
 
-    if (context.hasFile) {
-      return "I have your document ready. How many questions would you like me to generate? (Minimum 5 questions)";
+    // Default: Call real AI backend for conversational help
+    try {
+      const educatorDetails = JSON.parse(sessionStorage.getItem('edu_info'));
+      const response = await api.post("/quizzes/chat", {
+        message: userPrompt,
+        context: {
+          hasFile: context.hasFile,
+          lastQuizTitle: generatedQuiz?.title
+        }
+      });
+      return response.data.reply;
+    } catch (err) {
+      console.error("Chat API error:", err);
+      // Fallback to text prompt generation if API fails or for generic queries
+      return `generate_text_prompt:${userPrompt}`;
     }
-
-    // FIX: Default return for text prompts without file
-    return `generate_text_prompt:${userPrompt}`;
   };
 
 
@@ -151,24 +132,19 @@ function Chat() {
       addAssistantMessage(`Generating ${numQuestions} questions from your prompt...`);
 
       try {
-        const response = await fetch("http://localhost:5000/generate-quiz", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text: textPrompt,
-            numQuestions
-          })
+        // Bug 2 & 3 fix: call the correct endpoint with the right payload.
+        // /quizzes/generate expects raw document text; /quizzes/generate-from-prompt
+        // is the topic/prompt endpoint backed by the Python RAG server.
+        const response = await api.post("/quizzes/generate-from-prompt", {
+          prompt: textPrompt,
+          num_questions: numQuestions
         });
-
-        if (!response.ok) {
-          throw new Error(`Server error: ${response.status}`);
-        }
-
-        // RECEIVE VALID JSON
-        const data = await response.json();
+        // axios throws on non-2xx — no .ok / .json() needed
+        const data = response.data;
         console.log("Received JSON:", data);
+        const quizData = data.quiz || data;
 
-        setGeneratedQuiz(data);
+        setGeneratedQuiz(quizData);
         setConversationContext(prev => ({
           ...prev,
           lastQuizParams: { numQuestions, isTextPrompt: true, textPrompt }
@@ -176,13 +152,15 @@ function Chat() {
 
         setMessages(prev => [...prev, {
           type: "success",
-          content: `Successfully generated "${data.title}" with ${data.questions.length} questions!`,
-          quizData: data
+          content: `Successfully generated "${quizData.title}" with ${quizData.questions?.length} questions!`,
+          quizData
         }]);
       } catch (error) {
+        // axios wraps server error details in error.response.data
+        const serverMsg = error.response?.data?.message;
         setMessages(prev => [...prev, {
           type: "error",
-          content: `Failed to generate quiz: ${error.message}`
+          content: `Failed to generate quiz: ${serverMsg || error.message}`
         }]);
       } finally {
         setIsLoading(false);
@@ -202,37 +180,38 @@ function Chat() {
     addAssistantMessage(`Generating ${numQuestions} questions from your document. This may take a moment...`);
 
     try {
+      const educatorDetails = JSON.parse(sessionStorage.getItem('edu_info'));
+      
       const formData = new FormData();
-      formData.append('prompt', `Generate ${numQuestions} questions`);
       formData.append('file', file);
 
-      const response = await fetch('http://localhost:8000/generate-quiz', {
-        method: 'POST',
-        body: formData,
+      const uploadRes = await api.post('/upload/upload', formData, {
+        headers: { 
+          'Content-Type': 'multipart/form-data',
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-      }
+      const filePath = uploadRes.data.filePath;
 
-      const data = await response.json();
+      const response = await api.post('/quizzes/generate-from-file', {
+        filePath,
+        num_questions: numQuestions
+      });
 
-      if (typeof data === 'string' && data.includes('MINIMUM')) {
-        addAssistantMessage(data);
-      } else {
-        setGeneratedQuiz(data);
-        setConversationContext(prev => ({
-          ...prev,
-          lastQuizParams: { numQuestions, fileName: file.name }
-        }));
+      const quizData = response.data.quiz || response.data;
 
-        setMessages(prev => [...prev, {
-          type: 'success',
-          content: `Successfully generated "${data.title}" with ${data.questions.length} questions!`,
-          timestamp: new Date(),
-          quizData: data
-        }]);
-      }
+      setGeneratedQuiz(quizData);
+      setConversationContext(prev => ({
+        ...prev,
+        lastQuizParams: { numQuestions, fileName: file.name }
+      }));
+
+      setMessages(prev => [...prev, {
+        type: 'success',
+        content: `Successfully generated "${quizData.title}" with ${quizData.questions?.length} questions!`,
+        timestamp: new Date(),
+        quizData
+      }]);
     } catch (error) {
       setMessages(prev => [...prev, {
         type: 'error',
@@ -344,50 +323,42 @@ function Chat() {
 
 
   const handleAgenticGenerate = async (url) => {
-    setShowAgenticModal(false)
+    setShowAgenticModal(false);
     console.log("AGENTIC URL RECEIVED:", url);
     addAssistantMessage(`Generating questions from URL...`);
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/agentic-mode", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-      }
-
-      // Receive valid JSON from server
-      const data = await response.json();
+      // Bug 2 fix: api is axios — response body is at response.data, not response.json().
+      // axios also throws automatically on non-2xx, so no .ok check is needed.
+      const response = await api.post("/quizzes/agentic", { url });
+      const data = response.data;
       console.log("Received Agentic JSON:", data);
+      const quizData = data.quiz || data;
 
-      setGeneratedQuiz(data);
+      setGeneratedQuiz(quizData);
 
-      // Store last params (no numQuestions or textPrompt here)
       setConversationContext(prev => ({
         ...prev,
         lastQuizParams: { agenticUrl: url }
       }));
 
-      // Add success message + quiz UI
       setMessages(prev => [
         ...prev,
         {
           type: "success",
-          content: `Successfully generated "${data.title}" with ${data.questions.length} questions!`,
-          quizData: data
+          content: `Successfully generated "${quizData.title}" with ${quizData.questions?.length} questions!`,
+          quizData
         }
       ]);
 
     } catch (error) {
+      const serverMsg = error.response?.data?.message;
       setMessages(prev => [
         ...prev,
         {
           type: "error",
-          content: `Failed to generate agentic quiz: ${error.message}`
+          content: `Failed to generate agentic quiz: ${serverMsg || error.message}`
         }
       ]);
     } finally {
@@ -401,13 +372,10 @@ function Chat() {
       // TODO: Replace with actual endpoint
       const educatorDetails = JSON.parse(sessionStorage.getItem('edu_info'));
 
-      const response = await axios.post("http://localhost:5000/api/quizzes/create",{
-        quizData
-      },{
-        headers:{
-          Authorization:educatorDetails.token,
-        }
-      })
+      const response = await api.post("/quizzes/create",{
+        ...quizData,
+        time: quizData.time || "15"
+      });
       // const response = await fetch('/api/quiz/save', {
       //   method: 'POST',
       //   headers: {
@@ -421,6 +389,8 @@ function Chat() {
       } else {
         addAssistantMessage("âŒ Failed to save quiz. Please try again.");
       }
+
+      //navigate
     } catch (error) {
       console.error('Error saving quiz:', error);
       addAssistantMessage("âŒ Error saving quiz. Please try again.");
@@ -435,7 +405,8 @@ function Chat() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${generatedQuiz.quiz_name.replace(/\s+/g, '_')}.json`;
+    // Use .title (our field name); fallback to 'quiz' if undefined
+    link.download = `${(generatedQuiz.title || generatedQuiz.quiz_name || 'quiz').replace(/\s+/g, '_')}.json`;
     link.click();
     URL.revokeObjectURL(url);
   };

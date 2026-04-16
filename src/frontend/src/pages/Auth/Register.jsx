@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './Auth.css';
-import axios from "axios";
+import api from '../../services/api';
 const Register = () => {
   const [formData, setFormData] = useState({
     name: '',
@@ -84,7 +84,7 @@ const Register = () => {
         // Map userType from the frontend state to 'role' expected by the backend
         role: userType
       };
-      const response = await axios.post("http://localhost:5000/api/auth/signup", payload);
+      const response = await api.post("/auth/signup", payload);
       console.log(response);
 
 

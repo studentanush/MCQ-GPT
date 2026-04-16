@@ -11,3 +11,5 @@ uvicorn
 python-multipart
 pydantic
 ollama
+langchain-google-genai
+google-generativeai

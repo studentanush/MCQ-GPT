@@ -1,32 +1,48 @@
 import React, { useState, useEffect } from 'react';
 import './Reports.css';
+import api from '../../services/api';
+
+
 
 const Reports = () => {
   const [activeTab, setActiveTab] = useState('overview');
+  
+  // Helper to get score level class
+  const getScoreClass = (score) => {
+    if (score >= 90) return 'score-excellent';
+    if (score >= 75) return 'score-good';
+    if (score >= 50) return 'score-average';
+    return 'score-poor';
+  };
+
   const [selectedQuiz, setSelectedQuiz] = useState('');
   const [dateRange, setDateRange] = useState('week');
   const [selectedTopic, setSelectedTopic] = useState('all');
   const [showReport, setShowReport] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [quizOptions, setQuizOptions] = useState([{ id: '', name: 'Select a quiz...' }]);
+  const [fetchingQuizzes, setFetchingQuizzes] = useState(true);
 
-  // Sample quiz data
-  const quizOptions = [
-    { id: '', name: 'Select a quiz...' },
-    { id: 'physics', name: 'Physics - Motion & Forces' },
-    { id: 'math', name: 'Math - Calculus Basics' },
-    { id: 'history', name: 'History - World War II' },
-    { id: 'chemistry', name: 'Chemistry - Organic Compounds' },
-    { id: 'biology', name: 'Biology - Cell Structure' },
-  ];
+  // Fetch educator's quizzes for dropdown
+  useEffect(() => {
+    const fetchQuizzes = async () => {
+      const eduInfo = sessionStorage.getItem('edu_info');
+      if (!eduInfo) { setFetchingQuizzes(false); return; }
+      const { token } = JSON.parse(eduInfo);
+      try {
+        const res = await api.get("/quizzes/getUserQuizes");
+        const opts = [{ id: '', name: 'Select a quiz...' }, ...res.data.map(q => ({ id: q._id, name: q.title }))];
+        setQuizOptions(opts);
+      } catch (err) {
+        console.error('Error fetching quizzes for report:', err);
+      } finally {
+        setFetchingQuizzes(false);
+      }
+    };
+    fetchQuizzes();
+  }, []);
 
-  const topicOptions = [
-    { id: 'all', name: 'All Topics' },
-    { id: 'kinematics', name: 'Kinematics' },
-    { id: 'newton', name: 'Newton\'s Laws' },
-    { id: 'friction', name: 'Friction' },
-    { id: 'energy', name: 'Energy' },
-    { id: 'momentum', name: 'Momentum' },
-  ];
+  const [topicOptions, setTopicOptions] = useState([{ id: 'all', name: 'All Topics' }]);
 
   const dateOptions = [
     { id: 'week', name: 'Last 7 days' },
@@ -36,58 +52,81 @@ const Reports = () => {
     { id: 'custom', name: 'Custom range' },
   ];
 
-  // Sample data - would come from API
   const [reportData, setReportData] = useState(null);
 
-  const handleGenerateReport = () => {
+  const handleGenerateReport = async () => {
     if (!selectedQuiz) {
       alert('Please select a quiz to generate report');
       return;
     }
 
     setIsLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      const mockData = {
-        quizTitle: 'Physics - Motion & Forces',
-        totalStudents: 45,
-        avgScore: 85.6,
-        completionRate: 94.3,
-        avgTime: '15:42',
-        topPerformers: [
-          { id: 1, name: 'Alex Johnson', score: 95, rank: 1 },
-          { id: 2, name: 'Sarah Miller', score: 92, rank: 2 },
-          { id: 3, name: 'Mike Chen', score: 88, rank: 3 },
-        ],
-        studentPerformance: [
-          { id: 1, name: 'Alex Johnson', score: 95, correct: 18, wrong: 2, time: '14:30' },
-          { id: 2, name: 'Sarah Miller', score: 92, correct: 17, wrong: 3, time: '16:45' },
-          { id: 3, name: 'Mike Chen', score: 88, correct: 16, wrong: 4, time: '12:20' },
-          { id: 4, name: 'Emma Wilson', score: 85, correct: 15, wrong: 5, time: '19:15' },
-          { id: 5, name: 'David Brown', score: 81, correct: 14, wrong: 6, time: '21:30' },
-        ],
-        questionAnalysis: [
-          { id: 1, question: 'Newton\'s Second Law formula', correctRate: 92, avgTime: '0:45' },
-          { id: 2, question: 'Calculate force for 5kg at 3m/s²', correctRate: 85, avgTime: '1:20' },
-          { id: 3, question: 'Explain concept of inertia', correctRate: 78, avgTime: '2:30' },
-        ],
-        topicPerformance: [
-          { topic: 'Kinematics', score: 88, questions: 8 },
-          { topic: 'Newton\'s Laws', score: 92, questions: 6 },
-          { topic: 'Friction', score: 76, questions: 4 },
-        ],
-        aiInsights: [
-          'Students are struggling with friction-related questions (72% accuracy). Consider adding more practice.',
-          'Voice-enabled questions have 15% lower completion rate. Students might need more time.',
-          'David Brown\'s performance dropped 8% this week. Consider a one-on-one session.',
-        ]
+    setShowReport(false);
+    setReportData(null);
+
+    try {
+      const eduInfo = sessionStorage.getItem('edu_info');
+      const token = eduInfo ? JSON.parse(eduInfo).token : null;
+
+      const res = await api.get("/quizzes/educatorReport", {
+        params: { quizID: selectedQuiz },
+      });
+
+      const data = res.data;
+
+      // Shape the data for the report UI
+      const shaped = {
+        quizTitle: data.quizTitle,
+        totalStudents: data.totalStudents,
+        avgScore: data.avgScore,
+        completionRate: data.totalStudents > 0 ? 100 : 0,
+        avgTime: data.avgTime || '0m 0s',
+        topPerformers: data.studentPerformance
+          .sort((a, b) => b.percentage - a.percentage)
+          .slice(0, 3)
+          .map((s, i) => ({ id: i + 1, name: s.studentName, score: s.percentage, rank: i + 1 })),
+        studentPerformance: data.studentPerformance.map((s, i) => ({
+          id: i + 1,
+          name: s.studentName,
+          score: s.percentage,
+          correct: s.score,
+          wrong: s.total - s.score,
+          time: s.timeTaken || '—',
+        })),
+        questionAnalysis: data.questionAnalysis.map((q) => ({
+          id: q.questionIndex,
+          question: q.question,
+          correctRate: q.correctRate,
+          avgTime: '—',
+          topic: q.topic,
+        })),
+        topicPerformance: data.topicPerformance || [],
+        aiInsights:
+          data.totalStudents === 0
+            ? ['No students have attempted this quiz yet.']
+            : [
+                `${data.totalStudents} student(s) completed this quiz with an average score of ${data.avgScore}%.`,
+                data.questionAnalysis.filter(q => q.correctRate < 60).length > 0
+                  ? `Struggling questions: ${data.questionAnalysis.filter(q => q.correctRate < 60).map(q => 'Q' + q.questionIndex).join(', ')}. Consider revisiting these topics.`
+                  : 'Students performed well across all questions!',
+                data.avgScore >= 80
+                  ? 'Great performance overall! 🎉'
+                  : 'Consider scheduling a revision session for low-scoring topics.',
+              ],
       };
-      
-      setReportData(mockData);
+
+      // Set topic options from the report data
+      const uniqueTopics = ['all', ...new Set(shaped.questionAnalysis.map(q => q.topic))];
+      setTopicOptions(uniqueTopics.map(t => ({ id: t, name: t === 'all' ? 'All Topics' : t })));
+
+      setReportData(shaped);
       setShowReport(true);
+    } catch (err) {
+      console.error('Report fetch error:', err);
+      alert('Could not generate report. ' + (err.response?.data?.message || err.message));
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleResetFilters = () => {
@@ -107,11 +146,43 @@ const Reports = () => {
   };
 
   const handleExportData = (format) => {
-    if (!showReport) {
+    if (!showReport || !reportData) {
       alert('Please generate a report first');
       return;
     }
-    alert(`Exporting data as ${format}...`);
+    
+    if (format === 'CSV' || format === 'Excel') {
+      try {
+        const rows = [
+          ['Student Name', 'Score (%)', 'Correct', 'Wrong', 'Time Spent (s)']
+        ];
+        reportData.studentPerformance.forEach(student => {
+          rows.push([
+            student.name,
+            student.score,
+            student.correct,
+            student.wrong,
+            student.time
+          ]);
+        });
+        
+        const csvContent = rows.map(e => e.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `${reportData.quizTitle.replace(/\s+/g, '_')}_Report.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (err) {
+        console.error("Export error", err);
+        alert("Failed to export data.");
+      }
+    } else {
+      alert(`Exporting data as ${format} is not fully supported yet.`);
+    }
   };
 
   return (
@@ -419,7 +490,7 @@ const Reports = () => {
                         </div>
                         <div className="topic-progress">
                           <div 
-                            className="progress-bar"
+                            className={`progress-bar ${getScoreClass(topic.score)}`}
                             style={{width: `${topic.score}%`}}
                           ></div>
                         </div>
@@ -472,7 +543,7 @@ const Reports = () => {
                             </td>
                             <td>
                               <div className="score-cell">
-                                <span className={`score-value ${student.score >= 90 ? 'excellent' : student.score >= 80 ? 'good' : 'average'}`}>
+                                <span className={`score-value ${getScoreClass(student.score)}`}>
                                   {student.score}%
                                 </span>
                               </div>
@@ -543,7 +614,7 @@ const Reports = () => {
                           </div>
                           <div className="progress-bar-container">
                             <div 
-                              className="accuracy-bar"
+                              className={`accuracy-bar ${getScoreClass(q.correctRate)}`}
                               style={{width: `${q.correctRate}%`}}
                             ></div>
                           </div>

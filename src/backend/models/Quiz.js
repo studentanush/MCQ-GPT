@@ -7,11 +7,11 @@ const questionSchema = new mongoose.Schema({
   options: [String],
   correctAnswer: String,
   correctAnswerOption:String,
-  explantion:String,
+  explanation:String,
   type:String, // mcq
   difficulty:String,
   context:String,
-  sub_topics:String
+  sub_topics:[String]
 });
 
 const quizSchema = new mongoose.Schema(
@@ -28,3 +28,6 @@ const quizSchema = new mongoose.Schema(
 );
 
 export default mongoose.model("Quiz", quizSchema);
+
+
+

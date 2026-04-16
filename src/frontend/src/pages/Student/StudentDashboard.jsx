@@ -1,7 +1,5 @@
-
-
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import api from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 import './Dashboard.css';
 import { ContextAPI } from '../../Context';
@@ -14,6 +12,7 @@ const StudentDashboard = () => {
   const [charIndex, setCharIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
   const navigate = useNavigate();
+  const { studentData, logoutStudent } = useContext(ContextAPI);
 
   const typingMessages = [
     "Join Live Quiz Instantly ⚡",
@@ -53,62 +52,47 @@ const StudentDashboard = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  const availableQuizzes = [
-    { 
-      id: 1, 
-      title: 'Physics - Motion Quiz', 
-      teacher: 'Dr. Sharma', 
-      duration: '30 min', 
-      questions: 15,
-      status: 'live',
-      icon: '⚡'
-    },
-    { 
-      id: 2, 
-      title: 'Math - Calculus Basics', 
-      teacher: 'Prof. Sen', 
-      duration: '45 min', 
-      questions: 20,
-      status: 'upcoming',
-      icon: '∫'
-    },
-    { 
-      id: 3, 
-      title: 'History - World War II', 
-      teacher: 'Ms. Kulkarni', 
-      duration: '60 min', 
-      questions: 25,
-      status: 'live',
-      icon: '📜'
-    },
-  ];
+  const [availableQuizzes, setAvailableQuizzes] = useState([]);
+  const [pastAttempts, setPastAttempts] = useState([]);
 
-  const pastAttempts = [
-    { 
-      id: 1, 
-      title: 'Chemistry Basics', 
-      date: 'Dec 5, 2025', 
-      score: 85, 
-      total: 100,
-      icon: '🧪'
-    },
-    { 
-      id: 2, 
-      title: 'Biology - Cells', 
-      date: 'Nov 28, 2025', 
-      score: 92, 
-      total: 100,
-      icon: '🔬'
-    },
-    { 
-      id: 3, 
-      title: 'Physics - Energy', 
-      date: 'Nov 20, 2025', 
-      score: 78, 
-      total: 100,
-      icon: '⚛️'
-    },
-  ];
+  // Fetch real quizzes and attempts
+  useEffect(() => {
+    const fetchData = async () => {
+      const stuInfo = sessionStorage.getItem('stu_info');
+      if (!stuInfo) { setIsLoading(false); return; }
+      const { token } = JSON.parse(stuInfo);
+      
+      try {
+        // Fetch public quizzes
+        const publicRes = await api.get('/quizzes/public');
+        setAvailableQuizzes(publicRes.data);
+
+        // Fetch user attempts
+        const attemptsRes = await api.get('/quizzes/attempts');
+        
+        // Transform backend attempts to UI format
+        const transformed = attemptsRes.data.map(att => {
+           return {
+             id: att._id,
+             submissionId: att._id,
+             title: att.quizID?.title || "Deleted Quiz",
+             date: new Date(att.createdAt).toLocaleDateString(),
+             score: att.percentage,
+             total: 100,
+             icon: '📝'
+           };
+        });
+        setPastAttempts(transformed);
+
+      } catch (err) {
+        console.error('Error fetching student dashboard data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, []);
 
   const handleJoinQuiz = () => {
     if (roomCode.trim()) {
@@ -118,8 +102,8 @@ const StudentDashboard = () => {
     }
   };
 
-  const handleViewReport = (quizId) => {
-    navigate(`/student-report/${quizId}`);
+  const handleViewReport = (submissionId) => {
+    navigate(`/student/report/${submissionId}`);
   };
 
   const handleJoinLiveQuiz = (quizId) => {
@@ -157,12 +141,14 @@ const StudentDashboard = () => {
   return (
     <div className="educator-dashboard student-version">
       {/* Header */}
-
+      
       <div className="dashboard-content">
         {/* Welcome Section */}
         <section className="welcome-section flex flex-col items-center">
-          <h1 className='text-center'>Welcome to <span className="highlight ">Student Portal</span></h1>
-         Join live quizzes, track your progress, and improve your learning with AI-powered insights
+          <h1 className='text-center'>Welcome back, <span className="highlight ">{studentData?.name || "Student"}</span>! 👋</h1>
+          <p className="text-center mt-2 opacity-80">
+            Join live quizzes, track your progress, and improve your learning with AI-powered insights
+          </p>
         </section>
 
         {/* Join Live Quiz Section */}
@@ -194,7 +180,7 @@ const StudentDashboard = () => {
 
         {/* Quick Action - View Reports */}
         <section className="section-container quick-actions-single">
-          <div className="action-card" onClick={() => navigate('/student-report/1')}>
+          <div className="action-card" onClick={() => navigate('/student/reports')}>
             <div className="action-icon" style={{ background: 'linear-gradient(135deg, #4cc9f0, #4361ee)' }}>
               📊
             </div>
@@ -224,13 +210,13 @@ const StudentDashboard = () => {
                   key={quiz.id} 
                   className="quiz-item"
                   style={{ animationDelay: `${0.4 + (0.1 * index)}s` }}
-                  onClick={() => quiz.status === 'live' && handleJoinLiveQuiz(quiz.id)}
+                  onClick={() => handleJoinLiveQuiz(quiz._id)}
                 >
                   <div className="quiz-info">
                     <div className="quiz-icon">{quiz.icon}</div>
                     <div className="quiz-details">
                       <h4>{quiz.title}</h4>
-                      <p>By {quiz.teacher} • {quiz.questions} questions • {quiz.duration}</p>
+                      <p>By {quiz.createdBy?.name || "Teacher"} • {quiz.questions?.length} questions • {quiz.time}</p>
                     </div>
                   </div>
                   
@@ -324,7 +310,7 @@ const StudentDashboard = () => {
                           title="Download PDF"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/student-report/${attempt.id}`);
+                            handleViewReport(attempt.id);
                           }}
                         >
                           <i className="fas fa-download"></i>
@@ -342,14 +328,11 @@ const StudentDashboard = () => {
         <footer className="dashboard-footer">
           <p>© 2025 QUIZZCO.AI Student Portal • Learn, Practice, Excel!</p>
           <div className="footer-links">
-            <button onClick={() => alert('Help Center coming soon!')}>
-              <i className="fas fa-question-circle"></i> Help Center
-            </button>
-            <button onClick={() => alert('Settings coming soon!')}>
-              <i className="fas fa-cog"></i> Settings
+            <button onClick={() => navigate('/student/reports')}>
+              <i className="fas fa-chart-bar"></i> My Reports
             </button>
             <button onClick={() => {
-              alert('Logged out successfully!');
+              logoutStudent();
               navigate('/');
             }}>
               <i className="fas fa-sign-out-alt"></i> Logout

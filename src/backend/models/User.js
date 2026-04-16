@@ -24,7 +24,7 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: ["admin", "educator", "student"],
-      default: "teacher",  // creators of quizzes are usually teachers
+      default: "student",  // fixed: "teacher" was not in the enum — Mongoose would reject saves
     },
 
     profilePic: {

@@ -2,12 +2,43 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './EducatorDashboard.css';
 import { ContextAPI } from '../../Context';
+import api from '../../services/api';
+
+
 
 const EducatorDashboard = () => {
   const [typingText, setTypingText] = useState('');
-  const [notifications] = useState(3);
+  const [notifications] = useState(0);
   const navigate = useNavigate();
-  const {educatorData} = useContext(ContextAPI);
+  const { educatorData } = useContext(ContextAPI);
+  const [recentQuizzes, setRecentQuizzes] = useState([]);
+  const [quizzesLoading, setQuizzesLoading] = useState(true);
+  const [stats, setStats] = useState({ totalQuizzes: 0, totalStudents: 0, avgScore: 0 });
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  // Fetch dashboard data
+  useEffect(() => {
+    const fetchData = async () => {
+      const eduInfo = sessionStorage.getItem('edu_info');
+      if (!eduInfo) { setQuizzesLoading(false); setStatsLoading(false); return; }
+      const { token } = JSON.parse(eduInfo);
+      try {
+        setQuizzesLoading(true);
+        const qRes = await api.get('/quizzes/getUserQuizes');
+        setRecentQuizzes(qRes.data.slice(0, 5));
+
+        setStatsLoading(true);
+        const sRes = await api.get('/quizzes/educator-stats');
+        setStats(sRes.data);
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+      } finally {
+        setQuizzesLoading(false);
+        setStatsLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
   const welcomeMessages = [
     "Create engaging quizzes in seconds",
     "Track student progress in real-time",
@@ -59,12 +90,12 @@ const EducatorDashboard = () => {
       link: '/educator/chat'
     },
     { 
-      id: 'live-quiz',
-      icon: 'fas fa-broadcast-tower', 
-      title: 'Live Quiz Session', 
-      description: 'Host real-time interactive quizzes with students',
+      id: 'library',
+      icon: 'fas fa-book-open', 
+      title: 'Quiz Library', 
+      description: 'View, edit and manage all your generated quizzes',
       color: 'linear-gradient(135deg, #4361ee, #4cc9f0)',
-      link: '/educator/live-quiz'
+      link: '/educator/generated'
     },
     { 
       id: 'reports',
@@ -76,82 +107,38 @@ const EducatorDashboard = () => {
     },
   ];
 
-  const recentQuizzes = [
-    { 
-      id: 1,
-      name: 'Physics - Motion & Forces', 
-      date: 'Today', 
-      questions: 20, 
-      status: 'draft',
-      link: '/educator/generated?quiz=1'
-    },
-    { 
-      id: 2,
-      name: 'Math - Calculus Basics', 
-      date: 'Yesterday', 
-      questions: 15, 
-      status: 'published',
-      link: '/educator/generated?quiz=2'
-    },
-    { 
-      id: 3,
-      name: 'History - World War II', 
-      date: 'Dec 5', 
-      questions: 25, 
-      status: 'live',
-      link: '/educator/live-quiz?quiz=3'
-    },
-    { 
-      id: 4,
-      name: 'Chemistry - Organic Compounds', 
-      date: 'Dec 3', 
-      questions: 18, 
-      status: 'published',
-      link: '/educator/generated?quiz=4'
-    },
-  ];
-
   const handleNavigation = (path) => {
     navigate(path);
   };
 
   const handleEditQuiz = (quiz) => {
-    if (quiz.status === 'live') {
-      handleNavigation(`/educator/live-quiz?quiz=${quiz.id}`);
-    } else {
-      handleNavigation(`/educator/generated?quiz=${quiz.id}`);
-    }
+    navigate(`/educator/live-quiz/${quiz._id}`);
   };
 
   const handleShareQuiz = (quiz) => {
-    const shareUrl = `${window.location.origin}/attend/${quiz.id}`;
-    
+    const shareUrl = `${window.location.origin}/attend-quiz/${quiz._id}`;
     if (navigator.share) {
       navigator.share({
-        title: quiz.name,
-        text: `Join my quiz "${quiz.name}" on Quizzco.ai`,
-        url: shareUrl
+        title: quiz.title,
+        text: `Join my quiz "${quiz.title}" on Quizzco.ai`,
+        url: shareUrl,
       });
     } else {
       navigator.clipboard.writeText(shareUrl);
-      alert(`Quiz link copied to clipboard!\n\n${shareUrl}`);
+      alert(`Quiz link copied!\n\n${shareUrl}`);
     }
   };
 
   const handleViewQuiz = (quiz) => {
-    if (quiz.status === 'live') {
-      handleNavigation(`/educator/live-quiz?quiz=${quiz.id}&preview=true`);
-    } else {
-      handleNavigation(`/educator/generated?quiz=${quiz.id}&view=true`);
-    }
+    navigate('/educator/generated');
   };
 
   const handleNotificationClick = () => {
-    alert('You have 3 new notifications:\n1. Student Mike completed Physics quiz\n2. Quiz "Math Basics" is ready to publish\n3. New student joined your class');
+    alert('No new notifications');
   };
 
   const handleProfileClick = () => {
-    alert('Profile menu would open here');
+    navigate('/educator/dashboard');
   };
 
   const handleLogoClick = () => {
@@ -189,7 +176,7 @@ const EducatorDashboard = () => {
             </div>
             <div className="user-info">
               <h4>{educatorData.name}</h4>
-              <p>Physics Department</p>
+              <p>{educatorData.role === 'educator' ? 'Professional Educator' : educatorData.role}</p>
             </div>
             <i className="fas fa-chevron-down" style={{marginLeft: '10px'}}></i>
           </div>
@@ -209,6 +196,24 @@ const EducatorDashboard = () => {
           </p>
         </section>
 
+        {/* Stats Summary Bar */}
+        <section className="stats-bar mb-10">
+          <div className="stats-grid">
+            <div className="stat-pill">
+              <span className="pill-label">Total Quizzes</span>
+              <span className="pill-value">{statsLoading ? '...' : stats.totalQuizzes}</span>
+            </div>
+            <div className="stat-pill">
+              <span className="pill-label">Active Students</span>
+              <span className="pill-value">{statsLoading ? '...' : stats.totalStudents}</span>
+            </div>
+            <div className="stat-pill">
+              <span className="pill-label">Avg Proficiency</span>
+              <span className="pill-value">{statsLoading ? '...' : stats.avgScore}%</span>
+            </div>
+          </div>
+        </section>
+
         {/* Quick Actions - Now comes directly after welcome section */}
         <section className="actions-section">
           <h2 className="section-title">Quick Actions</h2>
@@ -218,16 +223,9 @@ const EducatorDashboard = () => {
                 key={action.id} 
                 className="action-card"
                 style={{ 
-                  animationDelay: `${index * 0.1}s`,
-                  cursor: 'pointer'
+                  animationDelay: `${index * 0.1}s`
                 }}
                 onClick={() => handleNavigation(action.link)}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-12px) scale(1.03)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0) scale(1)';
-                }}
               >
                 <div className="action-icon" style={{background: action.color}}>
                   <i className={action.icon}></i>
@@ -248,7 +246,7 @@ const EducatorDashboard = () => {
           </div>
         </section>
 
-        {/* Recent Quizzes */}
+        {/* Recent Quizzes - REAL DATA */}
         <section className="recent-section">
           <div className="quiz-table">
             <div className="quiz-table-header">
@@ -262,62 +260,62 @@ const EducatorDashboard = () => {
             </div>
             
             <div className="quiz-items">
-              {recentQuizzes.map((quiz, index) => (
-                <div 
-                  key={quiz.id} 
-                  className="quiz-item"
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                  onClick={() => handleViewQuiz(quiz)}
-                >
-                  <div className="quiz-info">
-                    <div className="quiz-icon">
-                      <i className="fas fa-file-alt"></i>
-                    </div>
-                    <div className="quiz-details">
-                      <h4>{quiz.name}</h4>
-                      <p>{quiz.questions} questions • Created: {quiz.date}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="quiz-meta">
-                    <span className={`status-badge status-${quiz.status}`}>
-                      {quiz.status.charAt(0).toUpperCase() + quiz.status.slice(1)}
-                    </span>
-                    <div className="quiz-actions">
-                      <button 
-                        className="icon-btn" 
-                        title="Edit Quiz"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEditQuiz(quiz);
-                        }}
-                      >
-                        <i className="fas fa-edit"></i>
-                      </button>
-                      <button 
-                        className="icon-btn" 
-                        title="Preview Quiz"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleViewQuiz(quiz);
-                        }}
-                      >
-                        <i className="fas fa-eye"></i>
-                      </button>
-                      <button 
-                        className="icon-btn" 
-                        title="Share Quiz"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleShareQuiz(quiz);
-                        }}
-                      >
-                        <i className="fas fa-share"></i>
-                      </button>
-                    </div>
-                  </div>
+              {quizzesLoading ? (
+                <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.4)', padding: '30px' }}>
+                  Loading quizzes...
                 </div>
-              ))}
+              ) : recentQuizzes.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.4)', padding: '30px' }}>
+                  No quizzes yet. <span style={{ color: '#8a2be2', cursor: 'pointer' }} onClick={() => handleNavigation('/educator/chat')}>Create one now!</span>
+                </div>
+              ) : (
+                recentQuizzes.map((quiz, index) => (
+                  <div 
+                    key={quiz._id} 
+                    className="quiz-item"
+                    style={{ animationDelay: `${index * 0.1}s` }}
+                    onClick={() => handleViewQuiz(quiz)}
+                  >
+                    <div className="quiz-info">
+                      <div className="quiz-icon">
+                        <i className="fas fa-file-alt"></i>
+                      </div>
+                      <div className="quiz-details">
+                        <h4>{quiz.title}</h4>
+                        <p>{quiz.questions?.length || 0} questions • Created: {new Date(quiz.createdAt).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="quiz-meta">
+                      <span className={`status-badge status-${(quiz.status || 'draft').toLowerCase()}`}>
+                        {(quiz.status || 'Draft').charAt(0).toUpperCase() + (quiz.status || 'draft').slice(1)}
+                      </span>
+                      <div className="quiz-actions">
+                        <button 
+                          className="icon-btn" 
+                          title="Host Live"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleNavigation(`/educator/live-quiz/${quiz._id}`);
+                          }}
+                        >
+                          <i className="fas fa-broadcast-tower"></i>
+                        </button>
+                        <button 
+                          className="icon-btn" 
+                          title="Share"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShareQuiz(quiz);
+                          }}
+                        >
+                          <i className="fas fa-share"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </section>

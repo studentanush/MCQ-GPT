@@ -1,13 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useContext } from 'react'
+import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
+import { toast } from 'react-toastify';
+import { ContextAPI } from '../Context';
 import '../q.css'
 
 const Hero = () => {
+  const navigate = useNavigate();
+  const { loginBro } = useContext(ContextAPI);
   const [flippedTeacher, setFlippedTeacher] = useState(false)
   const [flippedStudent, setFlippedStudent] = useState(false)
-  const statsRef = useRef(null)
-  const countersInitialized = useRef(false)
-
-  // Initialize animated counters
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const statsRef = useRef(null);
+  const countersInitialized = useRef(false);  // Initialize animated counters
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -99,27 +104,52 @@ const Hero = () => {
     console.log('Start Learning clicked')
   }
 
-  const handleAuthSubmit = (e, type) => {
-    e.preventDefault()
-    const formData = new FormData(e.target)
-    const email = formData.get('email')
-    const password = formData.get('password')
-    
-    console.log(`${type} login attempt:`, { email, password })
-    alert(`${type === 'teacher' ? 'Educator' : 'Student'} login submitted!`)
-  }
+  const handleAuthSubmit = async (e, type) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+
+    const formData = new FormData(e.target);
+    const email = formData.get('email');
+    const password = formData.get('password');
+
+    try {
+      setIsSubmitting(true);
+      const res = await api.post('/auth/login', { email, password });
+      
+      const userDetails = {
+        ...res.data.user,
+        token: res.data.token,
+        role: type === 'teacher' ? 'educator' : 'student'
+      };
+
+      loginBro(userDetails);
+      toast.success(`Welcome back, ${res.data.user.name}!`);
+      
+      if (type === 'teacher') {
+        navigate('/educator/dashboard');
+      } else {
+        navigate('/student/dashboard');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Login failed');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleQuickJoin = (e) => {
-    e.preventDefault()
-    const quizCode = e.target.elements['quizCode'].value
-    console.log('Quick join with code:', quizCode)
-    alert(`Joining quiz with code: ${quizCode}`)
-  }
+    e.preventDefault();
+    const quizCode = e.target.elements['quizCode'].value;
+    if (quizCode.trim()) {
+      navigate(`/attend-quiz/${quizCode}`);
+    } else {
+      toast.warn('Enter a valid room code');
+    }
+  };
 
   const handleSignUp = (type) => {
-    console.log(`Sign up as ${type}`)
-    alert(`Creating ${type} account...`)
-  }
+    navigate('/register', { state: { role: type } });
+  };
 
   const handleBackClick = (e, type) => {
     e.stopPropagation()

@@ -5,8 +5,7 @@ import { FaClock, FaTrophy, FaCheckCircle, FaTimesCircle, FaUser, FaSpinner } fr
 
 const Player = () => {
   // --- Context & State ---
-  // FIXED: Using perQuestionTime from context as requested
-  //const { perQuestionTime } = useContext(ContextAPI);
+  const { studentData } = useContext(ContextAPI);
   
   // Game Phases: 'LOBBY' | 'WAITING_FOR_QUESTION' | 'QUESTION' | 'FEEDBACK' | 'LEADERBOARD' | 'ENDED'
   const [gameState, setGameState] = useState("LOBBY");
@@ -18,7 +17,7 @@ const Player = () => {
   const [resultData, setResultData] = useState(null); 
   
   // User Input State
-  const [playerName, setPlayerName] = useState("");
+  const [playerName, setPlayerName] = useState(studentData?.name || "");
   const [roomCode, setRoomCode] = useState("");
   const [isJoined, setIsJoined] = useState(false);
   
@@ -105,7 +104,12 @@ const Player = () => {
     e.preventDefault();
     if (!playerName || !roomCode) return alert("Please enter Name and Room Code");
 
-    playerSocket.emit("joinRoom", { roomCode, playerName }, (response) => {
+    playerSocket.emit("joinRoom", { 
+      roomCode, 
+      playerName, 
+      playerEmail: studentData?.email || "",
+      studentId: studentData?.id || studentData?._id || null
+    }, (response) => {
       if (response.success) {
         setIsJoined(true);
       } else if (response.error) {
