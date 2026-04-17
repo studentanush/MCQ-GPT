@@ -514,7 +514,8 @@ export const generateFromPrompt = async (req, res) => {
   }
 
   try {
-    const pyResponse = await fetch("http://localhost:8000/generate-quiz-from-prompt", {
+    const pythonUrl = (process.env.PYTHON_SERVER_URL || "http://localhost:8000").replace(/\/$/, "");
+    const pyResponse = await fetch(`${pythonUrl}/generate-quiz-from-prompt`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt: userPrompt, num_questions: Number(num_questions) }),
