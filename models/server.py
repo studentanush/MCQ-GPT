@@ -1,9 +1,7 @@
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
-from langchain_ollama import ChatOllama
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 from typing import List, Optional
@@ -67,6 +65,7 @@ if google_api_key:
     )
 else:
     # LOCAL MODE: Use Ollama
+    from langchain_ollama import ChatOllama
     print("Initialize Local LLM (Ollama)...")
     llm = ChatOllama(
         model="llama3.2:3b",
@@ -83,6 +82,7 @@ if google_api_key:
         google_api_key=google_api_key
     )
 else:
+    from langchain_community.embeddings import HuggingFaceEmbeddings
     print("Initializing Local Embedding model (HuggingFace)...")
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
