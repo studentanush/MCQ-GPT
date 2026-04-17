@@ -2,7 +2,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
 from langchain_ollama import ChatOllama
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
@@ -76,8 +76,16 @@ else:
         num_ctx=2048
     )
 
-print("Initializing Embedding model...")
-embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+if google_api_key:
+    print("Initializing Cloud Embedding model (Google)...")
+    embeddings = GoogleGenerativeAIEmbeddings(
+        model="models/embedding-001",
+        google_api_key=google_api_key
+    )
+else:
+    print("Initializing Local Embedding model (HuggingFace)...")
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+
 print("Embedding model ready.")
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────────
