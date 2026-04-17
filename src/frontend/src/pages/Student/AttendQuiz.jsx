@@ -94,7 +94,8 @@ const AttendQuiz = () => {
     const studentDetail = JSON.parse(sessionStorage.getItem('stu_info'));
 
     if (!studentDetail) {
-      alert("Login first");
+      toast.info("Please login to join the quiz");
+      navigate(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
       return;
     }
     const playerName = studentDetail.name;

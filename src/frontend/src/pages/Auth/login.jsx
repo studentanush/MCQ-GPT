@@ -1,5 +1,5 @@
 import { useContext, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import './Auth.css';
 import api from '../../services/api';
 import { ContextAPI } from '../../Context';
@@ -13,6 +13,7 @@ const Login = () => {
   const [errors, setErrors] = useState({});
   const [rememberMe, setRememberMe] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const {loginBro} = useContext(ContextAPI);
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -86,10 +87,13 @@ const Login = () => {
         sessionStorage.setItem('auth_token', 'simulated_token');
       }
       
-      // Redirect to dashboard
-      if(userDetails.role=='student'){
+      // Redirect to target or dashboard
+      const redirectTo = searchParams.get('redirect');
+      if (redirectTo) {
+        navigate(redirectTo);
+      } else if (userDetails.role === 'student') {
         navigate('/student/dashboard');
-      }else{
+      } else {
         navigate('/educator/dashboard');
       }
       
