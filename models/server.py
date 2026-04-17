@@ -14,6 +14,8 @@ import re
 import shutil
 import uuid
 
+app = FastAPI()
+
 # Update CORS for production
 allowed_origins = os.getenv("ALLOWED_ORIGIN", "http://localhost:3000,http://localhost:5173,http://localhost:5174").split(",")
 
