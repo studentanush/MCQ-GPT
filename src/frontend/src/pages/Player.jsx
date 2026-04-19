@@ -1,7 +1,8 @@
 import React, { useContext, useEffect, useState, useRef } from "react";
 import { playerSocket } from "../socket";
 import { ContextAPI } from "../Context";
-import { FaClock, FaTrophy, FaCheckCircle, FaTimesCircle, FaUser, FaSpinner } from "react-icons/fa";
+import { FaClock, FaTrophy, FaCheckCircle, FaTimesCircle, FaUser, FaSpinner, FaRocket } from "react-icons/fa";
+import './Player.css';
 
 const Player = () => {
   // --- Context & State ---
@@ -160,47 +161,48 @@ const Player = () => {
   // 1. LOBBY VIEW
   if (gameState === "LOBBY") {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-        <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-2xl">
-          <h1 className="text-3xl font-extrabold text-center text-blue-600 mb-6">MCQ-GPT</h1>
+      <div className="player-container lobby-wrapper">
+        <div className="lobby-card">
+          <h1>MCQ-GPT</h1>
           
           {!isJoined ? (
-            <form onSubmit={joinRoom} className="flex flex-col gap-4">
-              <div>
-                <label className="text-sm font-semibold text-gray-600">Nickname</label>
+            <form onSubmit={joinRoom} className="lobby-form">
+              <div className="input-block">
+                <label>Nickname</label>
                 <input
-                  className="w-full border-2 border-gray-200 p-3 rounded-lg focus:outline-none focus:border-blue-500 transition"
+                  className="lobby-input"
                   placeholder="e.g. John Doe"
                   value={playerName}
                   onChange={(e) => setPlayerName(e.target.value)}
+                  autoFocus
                 />
               </div>
-              <div>
-                <label className="text-sm font-semibold text-gray-600">Room Code</label>
+              <div className="input-block">
+                <label>Room Code</label>
                 <input
-                  className="w-full border-2 border-gray-200 p-3 rounded-lg focus:outline-none focus:border-blue-500 transition"
+                  className="lobby-input"
                   placeholder="e.g. A1B2C"
                   value={roomCode}
                   onChange={(e) => setRoomCode(e.target.value)}
                 />
               </div>
-              <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition shadow-lg mt-2">
-                Join Game
+              <button className="join-btn">
+                <FaRocket style={{marginRight: '10px'}} /> Join Game
               </button>
             </form>
           ) : (
-            <div className="text-center">
-              <div className="inline-block p-4 bg-green-100 rounded-full mb-4">
-                 <FaUser className="text-3xl text-green-600" />
+            <div className="waiting-msg">
+              <div className="feedback-icon" style={{color: 'var(--success)', fontSize: '4rem'}}>
+                 <FaCheckCircle />
               </div>
-              <h2 className="font-bold text-2xl text-gray-800 mb-2">You're In!</h2>
-              <p className="text-gray-500 mb-6">Waiting for host to start...</p>
+              <h2>You're In!</h2>
+              <p>Waiting for host to start the mission...</p>
               
-              <div className="bg-gray-50 p-4 rounded-xl text-left max-h-40 overflow-y-auto">
-                <p className="text-xs font-bold text-gray-400 uppercase mb-2">Players in Lobby ({players.length})</p>
-                <div className="flex flex-wrap gap-2">
+              <div className="players-list-lobby">
+                <h3>Players in Lobby ({players.length})</h3>
+                <div className="player-tags">
                   {players.map((p, idx) => (
-                    <span key={idx} className="bg-white border border-gray-200 px-3 py-1 rounded-full text-sm font-medium text-gray-700">
+                    <span key={idx} className="player-tag">
                       {p}
                     </span>
                   ))}
@@ -216,10 +218,10 @@ const Player = () => {
   // 2. WAITING SCREEN
   if (gameState === "WAITING_FOR_QUESTION") {
     return (
-      <div className="min-h-screen bg-blue-600 flex flex-col items-center justify-center text-white">
-        <FaSpinner className="animate-spin text-5xl mb-4" />
-        <h2 className="text-3xl font-bold">Get Ready!</h2>
-        <p className="text-blue-200 mt-2">The first question is coming up...</p>
+      <div className="player-container" style={{alignItems: 'center', justifyContent: 'center'}}>
+        <FaSpinner className="fa-spin" style={{fontSize: '4rem', color: 'var(--primary-glow)', marginBottom: '20px'}} />
+        <h2 style={{fontSize: '2rem', fontWeight: '800'}}>Get Ready!</h2>
+        <p style={{opacity: 0.7}}>The first question is coming up...</p>
       </div>
     );
   }
@@ -227,49 +229,46 @@ const Player = () => {
   // 3. QUESTION VIEW
   if (gameState === "QUESTION") {
     return (
-      <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4 relative">
+      <div className="player-container">
         {/* Progress Bar */}
-        <div className="absolute top-0 left-0 w-full h-2 bg-gray-300">
+        <div style={{position: 'fixed', top: 0, left: 0, width: '100%', height: '6px', background: 'rgba(255,255,255,0.1)', zIndex: 100}}>
           <div 
-            className="h-full bg-blue-500 transition-all duration-1000 ease-linear"
-            style={{ width: `${getProgressWidth()}%` }}
+            style={{
+              height: '100%', 
+              background: 'var(--grad-premium)', 
+              width: `${getProgressWidth()}%`,
+              transition: 'width 1s linear',
+              boxShadow: '0 0 15px var(--primary-glow)'
+            }}
           />
         </div>
 
-        <div className="w-full max-w-2xl">
-          {/* Question Card */}
-          <div className="bg-white p-8 rounded-2xl shadow-xl mb-6 text-center">
-            <div className="flex justify-between items-center mb-4 text-gray-500 font-semibold">
-              <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs uppercase tracking-wider">
-                Question
-              </span>
-              <div className="flex items-center gap-2 text-red-500">
-                <FaClock /> {timer}s
-              </div>
+        <div className="game-container">
+          <div className="game-header">
+            <span className="status-pill status-draft" style={{fontSize: '0.9rem'}}>Live Quiz</span>
+            <div className="timer-pill">
+              <FaClock /> <span>{timer}s</span>
             </div>
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-800 leading-tight">
-              {questionDetails.question}
-            </h2>
           </div>
 
-          {/* Options */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {questionDetails.options?.map((opt, index) => {
-               const colors = ["bg-red-500", "bg-blue-500", "bg-yellow-500", "bg-green-500"];
-               return (
-                <button
-                  key={index}
-                  onClick={() => submitAnswer(index)}
-                  disabled={selectedAnswer !== null}
-                  className={`${colors[index % 4]} text-white p-6 rounded-xl shadow-md hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all text-left font-bold text-lg md:text-xl h-24 flex items-center`}
-                >
-                  <span className="bg-black/20 w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm">
-                    {String.fromCharCode(65 + index)}
-                  </span>
-                  {opt}
-                </button>
-               )
-            })}
+          <div className="question-card">
+            <h2>{questionDetails.question}</h2>
+          </div>
+
+          <div className="options-grid">
+            {questionDetails.options?.map((opt, index) => (
+              <button
+                key={index}
+                onClick={() => submitAnswer(index)}
+                disabled={selectedAnswer !== null}
+                className={`option-btn opt-${index % 4}`}
+              >
+                <span className="opt-letter">
+                  {String.fromCharCode(65 + index)}
+                </span>
+                {opt}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -280,17 +279,17 @@ const Player = () => {
   if (gameState === "FEEDBACK") {
     const isCorrect = resultData?.correct;
     return (
-      <div className={`min-h-screen flex flex-col items-center justify-center text-white ${isCorrect ? 'bg-green-500' : 'bg-red-500'}`}>
-        <div className="text-center animate-bounce">
-          {isCorrect ? <FaCheckCircle className="text-8xl mx-auto mb-4" /> : <FaTimesCircle className="text-8xl mx-auto mb-4" />}
-          <h2 className="text-5xl font-black uppercase tracking-wider">
-            {isCorrect ? "Correct" : "Wrong"}
-          </h2>
+      <div className={`feedback-overlay ${isCorrect ? 'correct' : 'wrong'}`}>
+        <div className="feedback-icon">
+          {isCorrect ? <FaCheckCircle /> : <FaTimesCircle />}
         </div>
-        <div className="mt-8 bg-black/20 px-6 py-3 rounded-lg">
-          <p className="font-bold text-xl">Points +{resultData?.earnedPoints || 0}</p>
+        <h2 className="feedback-text">
+          {isCorrect ? "Correct" : "Wrong"}
+        </h2>
+        <div style={{marginTop: '30px', padding: '15px 30px', background: 'rgba(0,0,0,0.2)', borderRadius: '15px'}}>
+          <p style={{fontSize: '1.5rem', fontWeight: '800'}}>Points +{resultData?.earnedPoints || 0}</p>
         </div>
-        <p className="mt-4 text-white/80 text-sm">Loading leaderboard...</p>
+        <p style={{marginTop: '20px', opacity: 0.8}}>Loading leaderboard...</p>
       </div>
     );
   }
@@ -301,42 +300,39 @@ const Player = () => {
     const myScore = myIndex !== -1 ? leaderBoardData[myIndex].score : 0;
 
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center p-4">
-        <h2 className="text-white text-3xl font-bold mt-8 mb-6 flex items-center gap-2">
-          <FaTrophy className="text-yellow-400" /> Leaderboard
+      <div className="player-container leaderboard-wrapper">
+        <h2 style={{fontSize: '2.5rem', fontWeight: '900', marginBottom: '30px', display: 'flex', alignItems: 'center', gap: '15px'}}>
+          <FaTrophy style={{color: '#ffd700'}} /> Leaderboard
         </h2>
         
-        <div className="w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden">
-          <div className="bg-gray-100 p-3 text-center text-sm text-gray-500">
+        <div className="leaderboard-card">
+          <div style={{padding: '12px', background: 'rgba(255,255,255,0.05)', textAlign: 'center', fontSize: '0.85rem', opacity: 0.6}}>
             Waiting for host to send next question...
           </div>
           
-          <div className="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto">
+          <div style={{maxHeight: '60vh', overflowY: 'auto'}}>
             {leaderBoardData.map((p, i) => (
               <div 
                 key={i} 
-                className={`flex items-center justify-between p-4 ${p.playerName === playerName ? 'bg-blue-50' : 'bg-white'}`}
+                className={`lb-row ${p.playerName === playerName ? 'me' : ''}`}
               >
-                <div className="flex items-center gap-3">
-                  <span className={`w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm 
-                    ${i === 0 ? 'bg-yellow-400 text-white' : 
-                      i === 1 ? 'bg-gray-400 text-white' : 
-                      i === 2 ? 'bg-orange-400 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                <div className="lb-player">
+                  <span className={`lb-rank rank-${i + 1}`}>
                     {i + 1}
                   </span>
-                  <span className={`font-semibold ${p.playerName === playerName ? 'text-blue-600' : 'text-gray-800'}`}>
+                  <span className="lb-name">
                     {p.playerName} {p.playerName === playerName && "(You)"}
                   </span>
                 </div>
-                <span className="font-bold text-gray-700">{p.score} pts</span>
+                <span className="lb-score">{p.score} pts</span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="mt-6 text-white text-center">
-          <p className="opacity-70">Your current score</p>
-          <p className="text-4xl font-bold">{myScore}</p>
+        <div style={{marginTop: '40px', textAlign: 'center'}}>
+          <p style={{opacity: 0.6, fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '2px'}}>Your Current Score</p>
+          <p style={{fontSize: '4rem', fontWeight: '900', color: 'var(--success)'}}>{myScore}</p>
         </div>
       </div>
     );
@@ -348,39 +344,40 @@ const Player = () => {
     const winner = sorted[0];
 
     return (
-      <div className="min-h-screen bg-purple-900 flex items-center justify-center p-4">
-        <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 text-center">
-          <h1 className="text-4xl font-black text-purple-700 mb-2">Quiz Ended</h1>
-          <p className="text-gray-500 mb-8">Thanks for playing!</p>
+      <div className="player-container" style={{padding: '40px 20px', alignItems: 'center'}}>
+        <h1 style={{fontSize: '3.5rem', fontWeight: '900', marginBottom: '10px', background: 'var(--grad-vibrant)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'}}>Quiz Ended</h1>
+        <p style={{opacity: 0.6, fontSize: '1.1rem', marginBottom: '60px'}}>Final Standing & Winners</p>
 
-          <div className="flex justify-center items-end gap-4 h-48 mb-6">
-            {/* 2nd Place */}
-            {sorted[1] && (
-              <div className="flex flex-col items-center">
-                <span className="font-bold text-gray-600 mb-1">{sorted[1].playerName}</span>
-                <div className="w-16 h-24 bg-gray-400 rounded-t-lg shadow-lg flex items-end justify-center pb-2 text-white font-bold">2</div>
-              </div>
-            )}
-            {/* 1st Place */}
-            {winner && (
-               <div className="flex flex-col items-center">
-                <FaTrophy className="text-yellow-400 text-4xl mb-2 animate-bounce" />
-                <span className="font-bold text-gray-800 text-lg mb-1">{winner.playerName}</span>
-                <div className="w-20 h-32 bg-yellow-400 rounded-t-lg shadow-xl flex items-end justify-center pb-2 text-white font-bold text-2xl">1</div>
-              </div>
-            )}
-            {/* 3rd Place */}
-            {sorted[2] && (
-               <div className="flex flex-col items-center">
-                <span className="font-bold text-gray-600 mb-1">{sorted[2].playerName}</span>
-                <div className="w-16 h-16 bg-orange-400 rounded-t-lg shadow-lg flex items-end justify-center pb-2 text-white font-bold">3</div>
-              </div>
-            )}
-          </div>
+        <div className="podium-container">
+          {/* 2nd Place */}
+          {sorted[1] && (
+            <div className="podium-pillar pod-2">
+              <span className="p-name">{sorted[1].playerName}</span>
+              <span className="rank-num">2</span>
+            </div>
+          )}
+          {/* 1st Place */}
+          {winner && (
+             <div className="podium-pillar pod-1">
+              <FaTrophy style={{color: '#ffd700', fontSize: '3rem', position: 'absolute', top: '-70px', animation: 'bounce 2s infinite'}} />
+              <span className="p-name" style={{fontSize: '1.25rem', top: '-110px'}}>{winner.playerName}</span>
+              <span className="rank-num">1</span>
+            </div>
+          )}
+          {/* 3rd Place */}
+          {sorted[2] && (
+             <div className="podium-pillar pod-3">
+              <span className="p-name">{sorted[2].playerName}</span>
+              <span className="rank-num">3</span>
+            </div>
+          )}
+        </div>
 
+        <div style={{width: '100%', maxWidth: '480px', marginTop: '40px'}}>
           <button 
             onClick={() => window.location.reload()} 
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl transition"
+            className="join-btn"
+            style={{width: '100%'}}
           >
             Play Again
           </button>
@@ -393,3 +390,4 @@ const Player = () => {
 };
 
 export default Player;
+

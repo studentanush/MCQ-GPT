@@ -1,8 +1,9 @@
 .live-quiz {
-  padding: var(--spacing-xl);
+  min-height: 100vh;
   max-width: 1400px;
   margin: 0 auto;
-  min-height: 100vh;
+  padding: 100px 40px 40px;
+  overflow-x: hidden;
 }
 
 /* Header */
@@ -232,6 +233,14 @@
   font-weight: 600;
   color: white;
   flex-shrink: 0;
+}
+
+.live-quiz {
+  min-height: 100vh;
+  background-color: #050110;
+  color: white;
+  padding: 100px 40px 40px;
+  overflow-x: hidden;
 }
 
 .student-info {
@@ -1028,7 +1037,7 @@
 
 @media (max-width: 768px) {
   .live-quiz {
-    padding: 20px;
+    padding: 90px 15px 15px;
   }
   
   .live-header {

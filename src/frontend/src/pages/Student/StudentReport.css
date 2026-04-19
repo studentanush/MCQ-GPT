@@ -3,6 +3,7 @@
 .student-report-container {
   min-height: 100vh;
   color: #ffffff;
+  padding-top: 100px;
   position: relative;
   z-index: 1;
 }

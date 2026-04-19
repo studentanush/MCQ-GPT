@@ -138,10 +138,36 @@ const StudentDashboard = () => {
     );
   }
 
-  return (
-    <div className="educator-dashboard student-version">
+    <div className="student-dashboard">
       {/* Header */}
-      
+      <header className="dashboard-header">
+        <div className="header-left">
+          <div className="logo-container" onClick={() => navigate('/student/dashboard')}>
+            <div className="logo-icon">
+              <i className="fas fa-brain"></i>
+            </div>
+            <div className="logo-text">
+              <div className="primary">MCQ-GPT</div>
+              <div className="secondary">Student Portal</div>
+            </div>
+          </div>
+          <div className="typing-text-container">
+            {typingText}<span className="typing-cursor">|</span>
+          </div>
+        </div>
+
+        <div className="header-right">
+          <div className="user-profile" onClick={() => navigate('/student/dashboard')}>
+            <div className="user-avatar">
+              {studentData?.name?.[0] || 'S'}
+            </div>
+            <div className="user-info">
+              <h4>{studentData?.name || 'Student'}</h4>
+            </div>
+            <i className="fas fa-chevron-down" style={{marginLeft: '10px', opacity: 0.5}}></i>
+          </div>
+        </div>
+      </header>
       <div className="dashboard-content">
         {/* Welcome Section */}
         <section className="welcome-section flex flex-col items-center">

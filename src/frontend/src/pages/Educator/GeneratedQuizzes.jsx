@@ -163,7 +163,7 @@ const GeneratedQuizzes = () => {
   const currentData = editMode ? editedQuiz : selectedQuiz;
 
   return (
-    <div className="min-h-screen bg-[#0D0B14] text-gray-200 p-8 font-sans relative">
+    <div className="generated-quizzes">
 
       {/* Toast */}
       {toast && (
