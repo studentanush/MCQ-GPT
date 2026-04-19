@@ -93,6 +93,101 @@
   letter-spacing: -0.5px;
 }
 
+/* ===== EDUCATOR DASHBOARD STYLES ===== */
+
+.educator-dashboard {
+  min-height: 100vh;
+  color: #ffffff;
+  position: relative;
+  z-index: 1;
+  background: transparent;
+}
+
+/* Header */
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md) var(--spacing-xl);
+  background: rgba(10, 14, 20, 0.8);
+  backdrop-filter: var(--glass-blur);
+  border-bottom: var(--glass-border);
+  box-shadow: var(--shadow-premium);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  animation: slide-up 0.8s ease-out;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  cursor: pointer;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: rgba(138, 43, 226, 0.1);
+  border-radius: var(--border-radius-md);
+  border: 1px solid rgba(138, 43, 226, 0.3);
+  transition: var(--transition-smooth);
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+.logo-container:hover {
+  background: rgba(138, 43, 226, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(138, 43, 226, 0.4);
+}
+
+.logo-icon {
+  width: 50px;
+  height: 50px;
+  background: var(--grad-premium);
+  border-radius: var(--border-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.logo-icon::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    to right,
+    transparent 20%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 80%
+  );
+  animation: shimmer 3s infinite;
+  transform: rotate(30deg);
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.logo-text .primary {
+  font-size: 1.8rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #ffffff, #b8b8ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.5px;
+}
+
 .logo-text .secondary {
   font-size: 0.9rem;
   color: rgba(255, 255, 255, 0.6);
@@ -106,6 +201,12 @@
   min-width: 300px;
 }
 
+@media (max-width: 768px) {
+  .typing-text {
+    display: none;
+  }
+}
+
 .typing-text::after {
   content: '|';
   animation: blink 1s infinite;
@@ -116,6 +217,13 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-lg);
+}
+
+@media (max-width: 480px) {
+  .header-right {
+    width: 100%;
+    justify-content: space-around;
+  }
 }
 
 .notification-bell {
@@ -534,6 +642,7 @@
   justify-content: center;
   gap: var(--spacing-lg);
   margin-top: var(--spacing-md);
+  flex-wrap: wrap;
 }
 
 .footer-links button {
@@ -645,22 +754,99 @@
 @media (max-width: 768px) {
   .dashboard-header {
     padding: var(--spacing-md);
-    flex-direction: column;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: var(--spacing-md);
   }
   
+  .header-left {
+    width: 100%;
+    justify-content: center;
+    margin-bottom: var(--spacing-xs);
+  }
+  
+  .logo-container {
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+  
+  .logo-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 1.4rem;
+  }
+  
+  .logo-text .primary {
+    font-size: 1.4rem;
+  }
+
+  .welcome-section h1 {
+    font-size: 2.2rem;
+  }
+  
+  .welcome-section p {
+    font-size: 1.1rem;
+  }
+
+  .section-title {
+    font-size: 1.8rem;
+    text-align: center;
+  }
+
   .actions-grid, .stats-grid {
     grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
+  
+  .action-card {
+    padding: var(--spacing-lg);
   }
   
   .quiz-item {
+    padding: var(--spacing-md);
     flex-direction: column;
     align-items: flex-start;
     gap: var(--spacing-md);
   }
   
+  .quiz-info {
+    gap: var(--spacing-md);
+  }
+  
+  .quiz-icon {
+    width: 45px;
+    height: 45px;
+    font-size: 1.2rem;
+  }
+
   .quiz-meta {
     width: 100%;
     justify-content: space-between;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  
+  .dashboard-content {
+    padding: var(--spacing-md);
+  }
+}
+
+@media (max-width: 480px) {
+  .user-info h4 {
+    font-size: 0.95rem;
+  }
+  
+  .user-info p {
+    font-size: 0.8rem;
+  }
+  
+  .user-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
+  }
+
+  .notification-bell {
+    width: 40px;
+    height: 40px;
   }
 }

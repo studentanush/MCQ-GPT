@@ -416,7 +416,7 @@ function Chat() {
       case 'user':
         return (
           <div key={index} className="flex justify-end mb-4">
-            <div className="max-w-[70%]">
+            <div className="max-w-[85%] md:max-w-[70%]">
               <div className=" text-black rounded-2xl px-4 py-3 shadow-md bg-white">
                 <FormattedMessage content={msg.content} />
               </div>
@@ -427,7 +427,7 @@ function Chat() {
       case 'assistant':
         return (
           <div key={index} className="flex justify-start mb-4">
-            <div className="max-w-[70%]">
+            <div className="max-w-[85%] md:max-w-[70%]">
               <div className="bg-white border border-gray-200 text-gray-800 rounded-2xl px-4 py-3 shadow-md">
                 <FormattedMessage content={msg.content} />
               </div>
@@ -592,10 +592,10 @@ function Chat() {
         <div className="max-w-5xl mx-auto">
           <div className=" bg-[#100027] border-2 border-white rounded-3xl p-4 shadow-lg ">
             {/* Action Buttons Row */}
-            <div className="flex items-center gap-3 mb-3">
+            <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-3">
               <button
                 onClick={handleAttach}
-                className="px-4 py-2 bg-white/90 text-gray-700 text-sm font-medium rounded-full hover:bg-white hover:shadow-md transition-all flex items-center gap-2 border border-purple-200"
+                className="px-3 md:px-4 py-2 bg-white/90 text-gray-700 text-xs md:text-sm font-medium rounded-full hover:bg-white hover:shadow-md transition-all flex items-center gap-2 border border-purple-200"
               >
                 <Upload className="w-4 h-4" />
                 Attach
@@ -604,7 +604,7 @@ function Chat() {
               <button
                 onClick={handleRegenerate}
                 disabled={isLoading}
-                className="px-4 py-2 bg-white/90 text-gray-700 text-sm font-medium rounded-full hover:bg-white hover:shadow-md transition-all flex items-center gap-2 border border-purple-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 md:px-4 py-2 bg-white/90 text-gray-700 text-xs md:text-sm font-medium rounded-full hover:bg-white hover:shadow-md transition-all flex items-center gap-2 border border-purple-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <RefreshCw className="w-4 h-4" />
                 Regenerate
@@ -613,7 +613,7 @@ function Chat() {
               <button
                 onClick={handleAgenticMode}
                 disabled={isLoading}
-                className="px-4 py-2 bg-white/90 text-gray-700 text-sm font-medium rounded-full hover:bg-white hover:shadow-md transition-all flex items-center gap-2 border border-purple-200"
+                className="px-3 md:px-4 py-2 bg-white/90 text-gray-700 text-xs md:text-sm font-medium rounded-full hover:bg-white hover:shadow-md transition-all flex items-center gap-2 border border-purple-200"
               >
                 <Sparkles className="w-4 h-4" />
                 Agentic Mode
