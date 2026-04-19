@@ -5,7 +5,7 @@ const Workflow = () => {
     <section className="section workflow" id="how-it-works">
       <div className="container">
         <div className="section-header center">
-          <h2 className="section-title">How <span className="text-highlight">QUIZZCO.AI</span> Works</h2>
+          <h2 className="section-title">How <span className="text-highlight">MCQ-GPT</span> Works</h2>
           <p className="section-description">Four simple steps to create amazing quizzes</p>
         </div>
         <div className="workflow-steps">

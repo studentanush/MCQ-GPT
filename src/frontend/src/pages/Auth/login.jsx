@@ -152,7 +152,7 @@ const Login = () => {
               <div className="auth-logo">
                 <div className="auth-logo-gradient">Q</div>
                 <div className="auth-logo-text">
-                  Quizzo<span>AI</span>
+                  MCQ-GPT
                 </div>
               </div>
               
@@ -266,7 +266,7 @@ const Login = () => {
             </form>
             
             <div className="auth-divider">
-              <span className="auth-divider-text">New to Quizzo AI?</span>
+              <span className="auth-divider-text">New to MCQ-GPT?</span>
             </div>
             
             <div className="auth-footer">

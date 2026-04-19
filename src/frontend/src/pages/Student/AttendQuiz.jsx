@@ -652,7 +652,7 @@ const AttendQuiz = () => {
             <div className="header-left">
               <div className="quiz-logo" onClick={() => navigate('/student/dashboard')}>
                 <span className="logo-icon">🎓</span>
-                <span className="logo-text">QUIZZCO.AI</span>
+                <span className="logo-text">MCQ-GPT</span>
               </div>
               <div className="quiz-info">
                 <h1 className="quiz-title">{quizData?.title}</h1>

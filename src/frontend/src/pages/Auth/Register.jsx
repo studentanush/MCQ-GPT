@@ -162,7 +162,7 @@ const Register = () => {
               <div className="auth-logo">
                 <div className="auth-logo-gradient">Q</div>
                 <div className="auth-logo-text">
-                  Quizzo<span>AI</span>
+                  MCQ-GPT
                 </div>
               </div>
 

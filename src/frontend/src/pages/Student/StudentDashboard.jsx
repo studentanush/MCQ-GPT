@@ -326,7 +326,7 @@ const StudentDashboard = () => {
 
         {/* Footer */}
         <footer className="dashboard-footer">
-          <p>© 2025 QUIZZCO.AI Student Portal • Learn, Practice, Excel!</p>
+          <p>© 2025 MCQ-GPT Student Portal • Learn, Practice, Excel!</p>
           <div className="footer-links">
             <button onClick={() => navigate('/student/reports')}>
               <i className="fas fa-chart-bar"></i> My Reports

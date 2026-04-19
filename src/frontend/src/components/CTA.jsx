@@ -6,7 +6,7 @@ const CTA = () => {
       <div className="container">
         <div className="cta-content">
           <h2 className="cta-title">Ready to Transform Your <span className="text-highlight">Quiz Experience</span>?</h2>
-          <p className="cta-description">Join thousands of educators and organizations using QUIZZCO.AI</p>
+          <p className="cta-description">Join thousands of educators and organizations using MCQ-GPT</p>
           <div className="cta-buttons">
             <button className="btn btn-primary btn-large" id="ctaStartFree">
               <i className="fas fa-rocket"></i>

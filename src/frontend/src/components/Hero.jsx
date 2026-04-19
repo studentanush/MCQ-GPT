@@ -174,7 +174,7 @@ const Hero = () => {
             <h1 className="hero-title">
               <span className="title-line">Welcome to</span>
               <span className="title-line">
-                <span className="text-gradient tracking-expand">QUIZZCO.AI</span>
+                <span className="text-gradient tracking-expand">MCQ-GPT</span>
               </span>
             </h1>
             
@@ -251,7 +251,7 @@ const Hero = () => {
                         </form>
                         
                         <div className="divider-compact">
-                          <span>New to QUIZZCO?</span>
+                          <span>New to MCQ-GPT?</span>
                         </div>
                         
                         <button className="btn btn-gradient btn-block-compact no-flip" onClick={() => handleSignUp('educator')}>

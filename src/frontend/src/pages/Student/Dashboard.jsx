@@ -168,7 +168,7 @@ const StudentDashboard = () => {
               <span style={{ fontSize: '1.5rem' }}>🎓</span>
             </div>
             <div className="logo-text">
-              <div className="primary">QUIZZCO.AI</div>
+              <div className="primary">MCQ-GPT</div>
               <div className="secondary">Student Portal</div>
             </div>
           </div>
@@ -378,7 +378,7 @@ const StudentDashboard = () => {
 
         {/* Footer */}
         <footer className="dashboard-footer">
-          <p>© 2025 QUIZZCO.AI Student Portal • Learn, Practice, Excel!</p>
+          <p>© 2025 MCQ-GPT Student Portal • Learn, Practice, Excel!</p>
           <div className="footer-links">
             <button onClick={() => alert('Help Center coming soon!')}>
               <i className="fas fa-question-circle"></i> Help Center

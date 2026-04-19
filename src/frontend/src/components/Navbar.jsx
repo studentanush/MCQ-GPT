@@ -74,8 +74,8 @@ const Navbar = () => { // Removed openLoginModal and openSignupModal props
               <i className="fas fa-brain logo-icon"></i>
             </div>
             <div className="brand-text">
-              <span className="brand-name">QUIZZCO</span>
-              <span className="brand-tld">.AI</span>
+              <span className="brand-name">MCQ</span>
+              <span className="brand-tld">-GPT</span>
             </div>
           </Link>
         </div>
@@ -174,8 +174,8 @@ const Navbar = () => { // Removed openLoginModal and openSignupModal props
                   <i className="fas fa-brain logo-icon"></i>
                 </div>
                 <div className="brand-text">
-                  <span className="brand-name">QUIZZCO</span>
-                  <span className="brand-tld">.AI</span>
+                  <span className="brand-name">MCQ</span>
+                  <span className="brand-tld">-GPT</span>
                 </div>
               </Link>
             </div>

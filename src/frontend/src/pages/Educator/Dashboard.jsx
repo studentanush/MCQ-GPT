@@ -120,7 +120,7 @@ const EducatorDashboard = () => {
     if (navigator.share) {
       navigator.share({
         title: quiz.title,
-        text: `Join my quiz "${quiz.title}" on Quizzco.ai`,
+        text: `Join my quiz "${quiz.title}" on MCQ-GPT`,
         url: shareUrl,
       });
     } else {
@@ -155,7 +155,7 @@ const EducatorDashboard = () => {
               <i className="fas fa-brain"></i>
             </div>
             <div className="logo-text">
-              <div className="primary">QUIZZCO.AI</div>
+              <div className="primary">MCQ-GPT</div>
               <div className="secondary">Educator Portal</div>
             </div>
           </div>
@@ -322,7 +322,7 @@ const EducatorDashboard = () => {
 
         {/* Footer */}
         <footer className="dashboard-footer">
-          <p>© 2024 QUIZZCO.AI Educator Portal • Making learning interactive and fun!</p>
+          <p>© 2024 MCQ-GPT Educator Portal • Making learning interactive and fun!</p>
           <div className="footer-links">
             <button onClick={() => handleNavigation('/educator/chat')}>Create Quiz</button>
             <button onClick={() => handleNavigation('/educator/generated')}>My Quizzes</button>

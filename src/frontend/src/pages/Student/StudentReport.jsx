@@ -70,7 +70,7 @@ const StudentReport = () => {
       // Header
       doc.setFontSize(20);
       doc.setTextColor(138, 43, 226);
-      doc.text('QUIZZCO.AI - Student Report', pageWidth / 2, 20, { align: 'center' });
+      doc.text('MCQ-GPT - Student Report', pageWidth / 2, 20, { align: 'center' });
       
       // Quiz Info
       doc.setFontSize(12);
@@ -158,7 +158,7 @@ const StudentReport = () => {
       // Header
       doc.setFontSize(20);
       doc.setTextColor(138, 43, 226);
-      doc.text('QUIZZCO.AI - Quiz Solutions', pageWidth / 2, 20, { align: 'center' });
+      doc.text('MCQ-GPT - Quiz Solutions', pageWidth / 2, 20, { align: 'center' });
       
       doc.setFontSize(12);
       doc.setTextColor(0, 0, 0);
@@ -292,7 +292,7 @@ const StudentReport = () => {
           <div className="logo-container" onClick={() => navigate('/student/dashboard')}>
             <div className="logo-icon">📊</div>
             <div className="logo-text">
-              <div className="primary">QUIZZCO.AI</div>
+              <div className="primary">MCQ-GPT</div>
               <div className="secondary">Performance Report</div>
             </div>
           </div>

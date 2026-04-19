@@ -11,7 +11,7 @@ const Features = () => {
               <span>Welcome to Future</span>
             </div>
             <h2 className="section-title">
-              Welcome to <span className="text-highlight">QUIZZCO</span>
+              Welcome to <span className="text-highlight">MCQ-GPT</span>
             </h2>
             <p className="section-description">
               Your intelligent quiz companion that transforms learning and assessment 

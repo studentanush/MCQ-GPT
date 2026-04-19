@@ -162,7 +162,7 @@ const Player = () => {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-2xl">
-          <h1 className="text-3xl font-extrabold text-center text-blue-600 mb-6">Quizzco.AI</h1>
+          <h1 className="text-3xl font-extrabold text-center text-blue-600 mb-6">MCQ-GPT</h1>
           
           {!isJoined ? (
             <form onSubmit={joinRoom} className="flex flex-col gap-4">
