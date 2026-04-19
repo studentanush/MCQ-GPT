@@ -138,6 +138,7 @@ const StudentDashboard = () => {
     );
   }
 
+  return (
     <div className="student-dashboard">
       {/* Header */}
       <header className="dashboard-header">
