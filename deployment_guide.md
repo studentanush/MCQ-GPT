@@ -1,6 +1,6 @@
-# QUIZZCO.AI Deployment Guide
+# MCQ-GPT Deployment Guide
 
-This guide outlines the necessary steps and environment variables required to deploy the QUIZZCO.AI platform to a production environment.
+This guide outlines the necessary steps and environment variables required to deploy the MCQ-GPT platform to a production environment.
 
 ## Architecture Overview
 The system consists of three main components:
@@ -39,7 +39,7 @@ These variables are baked into the frontend build at compile time.
 ### A. AI Engine (Python)
 1. **New > Web Service** on Render.
 2. Connect your GitHub repository.
-3. **Name**: `quizzco-ai-engine`
+3. **Name**: `mcq-gpt-ai-engine`
 4. **Root Directory**: `models`
 5. **Runtime**: `Python 3`
 6. **Build Command**: `pip install -r dependencies.txt`
@@ -51,7 +51,7 @@ These variables are baked into the frontend build at compile time.
 ### B. Backend (Node.js)
 1. **New > Web Service** on Render.
 2. Connect your GitHub repository.
-3. **Name**: `quizzco-backend`
+3. **Name**: `mcq-gpt-backend`
 4. **Root Directory**: `src/backend`
 5. **Runtime**: `Node`
 6. **Build Command**: `npm install`

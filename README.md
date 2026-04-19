@@ -1,14 +1,14 @@
-# QUIZZCO - AI Quiz Portal – MERN + AI (Prototype Build)
+# MCQ-GPT - AI Quiz Portal – MERN + AI (Prototype Build)
 
 A smart AI-powered quiz generation and evaluation platform built for the **UpSkill India Challenge (HCL × GUVI)**.  
 Our goal is to create an interactive quiz portal that automatically generates questions using AI, evaluates responses, and supports multi-user quiz sessions similar to Kahoot.
 
-QUIZZCO.AI is a full‑stack, event-ready quiz platform built for educational and event scenarios (e.g., TechFest). It combines real-time multiplayer quizzes, educator/admin controls, and AI-assisted quiz generation to let organizers create, run, and analyze interactive quizzes with minimal manual effort.
+MCQ-GPT is a full‑stack, event-ready quiz platform built for educational and event scenarios (e.g., TechFest). It combines real-time multiplayer quizzes, educator/admin controls, and AI-assisted quiz generation to let organizers create, run, and analyze interactive quizzes with minimal manual effort.
 
 ---
 
 ## Project overview
-The **QUIZZCO.AI** is a full‑stack MERN application that streamlines the creation, management, and conduction of quizzes. It includes a complete backend API using Express.js, event-based communication channels using Socket.IO, and a modular frontend built with React + Vite.
+The **MCQ-GPT** is a full‑stack MERN application that streamlines the creation, management, and conduction of quizzes. It includes a complete backend API using Express.js, event-based communication channels using Socket.IO, and a modular frontend built with React + Vite.
 
 
 The platform supports:

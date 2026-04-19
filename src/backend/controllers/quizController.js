@@ -16,7 +16,7 @@ export const generateChat = async (req, res) => {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `
-      You are an AI Quiz Assistant for QUIZZCO.AI. Your goal is to help educators create, manage, and refine quizzes.
+      You are an AI Quiz Assistant for MCQ-GPT. Your goal is to help educators create, manage, and refine quizzes.
       User message: "${message}"
       Context: ${JSON.stringify(context)}
 
