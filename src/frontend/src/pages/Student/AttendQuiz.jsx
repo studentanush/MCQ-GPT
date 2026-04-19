@@ -5,7 +5,7 @@ import { playerSocket } from '../../socket';
 import { toast } from 'react-toastify';
 import api from '../../services/api';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_URL;
 
 // Parse "20 mins" or "20" → seconds
 const parseTimeToSeconds = (timeStr) => {

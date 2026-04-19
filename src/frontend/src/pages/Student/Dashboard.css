@@ -210,6 +210,62 @@
   margin-inline: auto;
 }
 
+.join-input-group input {
+  width: 100%;
+  padding: 18px 25px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: white;
+  font-size: 1.2rem;
+  text-align: center;
+  letter-spacing: 2px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.join-input-group input:focus {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #8a2be2;
+  box-shadow: 0 0 20px rgba(138, 43, 226, 0.2);
+  outline: none;
+}
+
+/* Fix visibility */
+.join-input-group input {
+  color: #ffffff !important;
+  caret-color: #f72585; /* Pink cursor for visibility */
+}
+
+.join-input-group input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.join-btn {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #8a2be2, #f72585);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-weight: 700;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.join-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(247, 37, 133, 0.4);
+}
+
 /* Quiz List Section */
 .recent-section {
   margin-top: var(--spacing-xl);

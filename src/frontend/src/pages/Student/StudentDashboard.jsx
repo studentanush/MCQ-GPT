@@ -140,6 +140,69 @@ const StudentDashboard = () => {
 
   return (
     <div className="student-dashboard">
+      <style>{`
+        @media (max-width: 768px) {
+          .student-dashboard {
+            padding-top: 80px;
+          }
+
+          .dashboard-header {
+            padding: 12px var(--spacing-md);
+            height: auto;
+          }
+
+          .logo-text .secondary, .typing-text-container {
+            display: none;
+          }
+
+          .welcome-section h1 {
+            font-size: 2.5rem;
+          }
+
+          .join-card.action-card {
+            padding: var(--spacing-lg);
+            margin: 0 -10px;
+            border-radius: var(--border-radius-md);
+          }
+
+          .join-input-group input {
+            font-size: 1.1rem;
+            padding: 15px;
+            color: #ffffff !important;
+            background: rgba(255, 255, 255, 0.1) !important;
+          }
+          .filter-select:hover, .filter-select:focus {
+            border-color: var(--primary-glow);
+            background-color: rgba(255, 255, 255, 0.12);
+            box-shadow: 0 0 15px rgba(138, 43, 226, 0.2);
+          }
+
+          /* Force visibility for all select elements inside reports */
+          .filter-group select, .filter-group option {
+            color: #ffffff !important;
+            background-color: #1a1528 !important;
+          }
+
+          .filter-group select {
+            border: 1px solid rgba(255, 255, 255, 0.2);
+          }
+          .quiz-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 15px;
+            padding: 20px !important;
+          }
+
+          .quiz-actions {
+            width: 100%;
+          }
+
+          .quiz-actions button {
+            width: 100%;
+            justify-content: center;
+          }
+        }
+      `}</style>
       {/* Header */}
       <header className="dashboard-header">
         <div className="header-left">

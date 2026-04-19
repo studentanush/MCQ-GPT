@@ -153,6 +153,81 @@ const StudentDashboard = () => {
           </div>
           <h1 style={{color: 'white'}}>Loading Student Portal...</h1>
           <p style={{color: 'rgba(255,255,255,0.7)'}}>Preparing your learning experience</p>
+          <style>{`
+            @media (max-width: 768px) {
+              .student-dashboard {
+                padding-top: 80px;
+              }
+
+              .dashboard-header {
+                padding: 12px var(--spacing-md);
+              }
+
+              .logo-text .secondary, .typing-text-container {
+                display: none;
+              }
+
+              .welcome-section h1 {
+                font-size: 2.5rem;
+              }
+
+              .join-card.action-card {
+                padding: var(--spacing-lg);
+                margin: 0 -10px; /* Bleed slightly */
+                border-radius: var(--border-radius-md);
+              }
+
+              .join-input-group {
+                max-width: 100%;
+              }
+
+              .join-input-group input {
+                font-size: 1.1rem;
+                padding: 15px;
+              }
+
+              .quiz-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+                padding: 20px;
+              }
+
+              .quiz-actions {
+                width: 100%;
+              }
+
+              .quiz-actions button {
+                width: 100%;
+                justify-content: center;
+              }
+            }
+
+            @media (max-width: 480px) {
+              .welcome-section h1 {
+                font-size: 2rem;
+              }
+              
+              .dashboard-header .logo-icon {
+                width: 35px;
+                height: 35px;
+                font-size: 1.2rem;
+              }
+
+              .logo-text .primary {
+                font-size: 1.4rem;
+              }
+
+              .user-avatar {
+                width: 35px;
+                height: 35px;
+              }
+
+              .user-info h4 {
+                display: none; /* Hide name on very small screens to save space */
+              }
+            }
+          `}</style>
         </div>
       </div>
     );
@@ -185,10 +260,9 @@ const StudentDashboard = () => {
           </div>
           
           <div className="user-profile">
-            <div className="user-avatar">S</div>
+            <div className="user-avatar">{studentData?.name ? studentData.name.charAt(0).toUpperCase() : 'S'}</div>
             <div className="user-info">
-              <h4>{studentData.name}</h4>
-              {/* <p>Physics 101 • Roll No: 25</p> */}
+              <h4>{studentData?.name || 'Student'}</h4>
             </div>
           </div>
         </div>
