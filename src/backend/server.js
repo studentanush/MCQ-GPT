@@ -18,27 +18,33 @@ dotenv.config();
 const app = express();
 
 // Middlewares
+// Middlewares
 const allowedOrigins = process.env.ALLOWED_ORIGIN 
   ? process.env.ALLOWED_ORIGIN.split(",") 
   : ["http://localhost:5173", "http://localhost:3000", "http://localhost:5174"];
 
-app.use(cors({
+// Shared CORS origin validation logic
+const corsOptions = {
   origin: function (origin, callback) {
     // allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    const isAllowed = allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app');
+    const isAllowed = allowedOrigins.indexOf(origin) !== -1 || 
+                      origin.endsWith('.vercel.app') || 
+                      origin.includes('localhost');
     
     if (isAllowed) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(null, false); // No error, just disallow
     }
   },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
-}));
+};
+
+app.use(cors(corsOptions));
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
@@ -48,7 +54,7 @@ connectDB();
 
 // Test Route
 app.get("/", (req, res) => {
-  res.send("QUIZZCO.AI Backend is running...");
+  res.send("MCQ-GPT Backend is running...");
 });
 
 // API Routes
@@ -59,11 +65,7 @@ app.use("/api/quizzes", quizRoutes);
 // ----------------- SOCKET.IO SETUP ---------------- //
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-  cors: { 
-    origin: allowedOrigins, 
-    methods: ["GET", "POST"],
-    credentials: true
-  },
+  cors: corsOptions, // Use the same CORS options for consistency
 });
 
 // Initialize Socket Manager
