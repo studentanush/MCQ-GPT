@@ -24,17 +24,20 @@
   --spacing-sm: 8px;
   --spacing-md: 16px;
   --spacing-lg: 24px;
-  --spacing-xl: 40px;
-  --spacing-xxl: 80px;
+  --spacing-xl: 48px;
+  --spacing-xxl: 96px;
 
   /* --- Foundations --- */
-  --border-radius-sm: 8px;
-  --border-radius-md: 16px;
-  --border-radius-lg: 24px;
-  --glass-blur: blur(12px);
-  --glass-border: 1px solid rgba(255, 255, 255, 0.1);
-  --shadow-premium: 0 20px 40px rgba(0, 0, 0, 0.3);
-  --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --border-radius-sm: 10px;
+  --border-radius-md: 18px;
+  --border-radius-lg: 28px;
+  --glass-blur: blur(16px);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+  --glass-border-bright: 1px solid rgba(255, 255, 255, 0.15);
+  --shadow-premium: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 30px rgba(138, 43, 226, 0.25);
+  --transition-smooth: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: 0.2s ease;
 }
 
 * {
@@ -45,12 +48,19 @@
 }
 
 body {
-  font-family: 'Inter', 'Outfit', system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: var(--bg-dark);
-  background-image: var(--grad-dark);
   color: #ffffff;
   min-height: 100vh;
   overflow-x: hidden;
+  line-height: 1.5;
+  background-attachment: fixed;
+}
+
+h1, h2, h3, h4 {
+  font-family: 'Inter', sans-serif;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 /* --- Global Utilities --- */
@@ -61,7 +71,7 @@ body {
 }
 
 .glass-card {
-  background: var(--grad-glass);
+  background: rgba(255, 255, 255, 0.03);
   backdrop-filter: var(--glass-blur);
   border: var(--glass-border);
   border-radius: var(--border-radius-md);
@@ -71,27 +81,30 @@ body {
 
 .glass-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(138, 43, 226, 0.4);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .btn-primary {
   background: var(--grad-premium);
   color: white;
-  padding: 12px 24px;
+  padding: 14px 28px;
   border-radius: var(--border-radius-sm);
-  font-weight: 600;
+  font-weight: 700;
   border: none;
   cursor: pointer;
   transition: var(--transition-smooth);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 10px 20px -5px rgba(138, 43, 226, 0.3);
+  text-decoration: none;
+  font-size: 1rem;
 }
 
-.btn-primary:hover {
-  filter: brightness(1.1);
-  box-shadow: 0 0 20px rgba(138, 43, 226, 0.4);
+.btn-primary:active {
+  transform: scale(0.98);
 }
 
 /* --- Scrollbar --- */

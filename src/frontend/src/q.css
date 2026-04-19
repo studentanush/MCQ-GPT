@@ -694,7 +694,6 @@ body {
     color: var(--lighter);
     letter-spacing: -1.5px;
     font-family: 'Outfit', sans-serif;
-    text-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 .title-line {
@@ -735,14 +734,12 @@ body {
 
 .flip-card {
     position: relative;
-    height: 420px;
+    height: 480px;
     cursor: pointer;
     transform-style: preserve-3d;
     transition: all 0.6s cubic-bezier(0.23, 1, 0.320, 1);
     will-change: transform;
-    backdrop-filter: var(--glass-blur);
     border-radius: var(--border-radius-md);
-    overflow: hidden;
 }
 
 .flip-card-inner {
@@ -2478,7 +2475,68 @@ body {
     overflow-x: hidden;
 }
 
-/* Make sure main content starts after navbar */
+/* Responsive Tablet */
+@media (max-width: 1024px) {
+    .hero-title {
+        font-size: 3.2rem;
+    }
+    .role-cards-horizontal {
+        gap: 24px;
+        padding: 0 20px;
+    }
+}
+
+/* Responsive Mobile */
+@media (max-width: 768px) {
+    .navbar .container {
+        padding: 0 20px;
+    }
+    .nav-menu {
+        display: none;
+    }
+    .menu-toggle {
+        display: flex;
+    }
+
+    .hero {
+        padding-top: 100px;
+    }
+    .hero-title {
+        font-size: 2.5rem;
+        letter-spacing: -1px;
+    }
+    .hero-subtitle {
+        font-size: 1.1rem;
+    }
+    .role-cards-horizontal {
+        grid-template-columns: 1fr;
+        max-width: 450px;
+    }
+    .flip-card {
+        height: 420px;
+    }
+    
+    .section-header h2 {
+        font-size: 2.2rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero-title {
+        font-size: 2rem;
+    }
+    .badge-animated {
+        padding: 10px 20px;
+        font-size: 0.85rem;
+    }
+    .flip-card {
+        height: 400px;
+    }
+    .btn {
+        padding: 12px 24px;
+        font-size: 0.9rem;
+    }
+}
 main {
     margin-top: 0;
     padding-top: 0;

@@ -157,11 +157,13 @@
 .generate-btn {
   background: var(--grad-premium);
   color: white;
+  padding: 14px 28px;
+  box-shadow: 0 8px 16px rgba(138, 43, 226, 0.3);
 }
 
 .generate-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(138, 43, 226, 0.3);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px rgba(138, 43, 226, 0.4);
 }
 
 /* Empty State */
@@ -347,30 +349,31 @@
 
 .tab-btn {
   flex: 1;
-  padding: 12px var(--spacing-md);
+  padding: 14px var(--spacing-md);
   background: transparent;
   border: none;
   border-radius: var(--border-radius-sm);
   color: rgba(255, 255, 255, 0.6);
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: var(--transition-smooth);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--spacing-sm);
+  letter-spacing: 0.5px;
 }
 
 .tab-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.08);
   color: white;
 }
 
 .tab-btn.active {
-  background: rgba(138, 43, 226, 0.15);
-  color: var(--primary-glow);
-  box-shadow: 0 0 15px rgba(138, 43, 226, 0.2);
+  background: var(--grad-premium);
+  color: white;
+  box-shadow: 0 5px 15px rgba(138, 43, 226, 0.3);
 }
 
 /* Stats Cards */
@@ -1014,41 +1017,51 @@ tbody tr:hover {
 
 @media (max-width: 768px) {
   .reports-page {
-    padding: 20px;
+    padding: 20px 15px;
   }
   
   .reports-header {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
+    text-align: center;
     gap: 20px;
   }
   
   .header-left h1 {
-    font-size: 2.2rem;
+    font-size: 2rem;
   }
   
   .filter-actions {
     flex-direction: column;
+    gap: 12px;
   }
   
   .report-header {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
+    text-align: center;
     gap: 20px;
   }
   
   .report-actions {
     width: 100%;
-    justify-content: flex-start;
-    flex-wrap: wrap;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
   }
-  
+
   .reports-tabs {
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 8px;
+    background: transparent;
+    border: none;
+    padding: 0;
   }
   
   .tab-btn {
-    min-width: calc(50% - 10px);
+    width: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
   
   .question-stats {
@@ -1058,6 +1071,7 @@ tbody tr:hover {
   
   .insights-actions {
     flex-direction: column;
+    gap: 12px;
   }
 }
 
@@ -1066,21 +1080,15 @@ tbody tr:hover {
     grid-template-columns: 1fr;
   }
   
-  .empty-features {
-    grid-template-columns: 1fr;
+  .header-left h1 {
+    font-size: 1.8rem;
   }
-  
-  .tab-btn {
-    min-width: 100%;
+
+  .stat-card {
+    padding: 20px;
   }
-  
-  .question-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-  
-  .question-header h4 {
-    width: 100%;
+
+  .stat-content h3 {
+    font-size: 1.6rem;
   }
 }
