@@ -59,11 +59,22 @@ google_api_key = os.getenv("GOOGLE_API_KEY")
 if google_api_key:
     # CLOUD MODE: Use Gemini 1.5 Flash (Perfect for Render/Vercel)
     print("Initialize Cloud LLM (Gemini)...")
+    from langchain_google_genai import HarmCategory, HarmBlockThreshold
+    
+    # Disable most safety filters to prevent educational content from being blocked
+    safety_settings = {
+        HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+        HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+        HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+    }
+
     llm = ChatGoogleGenerativeAI(
         model="gemini-2.5-flash",
         google_api_key=google_api_key,
-        temperature=0,
-        convert_system_message_to_human=True
+        temperature=0.2, # Slight increase for better question variety
+        convert_system_message_to_human=True,
+        safety_settings=safety_settings
     )
 else:
     # LOCAL MODE: Use Ollama
@@ -106,32 +117,36 @@ def extract_question_count(prompt: str, default: int) -> int:
     return default
 
 QUIZ_PROMPT_TEMPLATE = ChatPromptTemplate.from_template("""
-You are an expert quiz generator. Create EXACTLY {num_questions} questions.
+You are a world-class educational assessment expert. Your task is to generate high-quality, pedagogically sound multiple-choice questions for the MCQ-GPT platform.
 
-CRITICAL: Output complete, valid JSON. DO NOT truncate.
+Create EXACTLY {num_questions} questions based on the provided content.
 
-Structure:
-- title: Concise title summarising the source (3-8 words)
-- questions: Array with EXACTLY {num_questions} question objects
+### QUALITY GUIDELINES:
+1. **Diverse Difficulty**: Distribute questions across different cognitive levels (Recall, Application, Analysis).
+2. **Clear Distractors**: Ensure the 3 incorrect options (distractors) are plausible but clearly incorrect to an expert.
+3. **Actionable Explanations**: Provide detailed explanations that teach the concept behind the correct answer.
+4. **Unique Context**: For each question, extract a small snippet from the source that supports the answer.
+5. **No Truncation**: Output MUST be complete, valid JSON.
+
+### DATA STRUCTURE:
+- title: A professional, catchy title summarising the source content (3-8 words).
+- questions: Array of EXACTLY {num_questions} objects.
 
 Each question object:
-- question: Question text
-- type: "scq" (single correct) or "mcq" (multiple correct)
-- options: Array ["A) option1", "B) option2", "C) option3", "D) option4"]
-- correctAnswer: Full text of correct answer
-- correctAnswerOption: Letter only (A, B, C, or D)
-- context: Brief source excerpt (under 100 chars)
-- explanation: Detailed solution
-- difficulty: -2.0 to 2.0 (decimals allowed: -1.5, 0, 0.5, 1.0, etc.)
-- sub_topics: Array of 2-3 specific subtopics
+- question: The actual MCQ question text.
+- type: "scq" (single correct).
+- options: Exactly 4 options starting with "A) ", "B) ", etc.
+- correctAnswer: The full text of the correct answer (excluding the letter prefix).
+- correctAnswerOption: The letter (A, B, C, or D).
+- context: The specific sentence or phrase from the source that contains the answer.
+- explanation: A clear 1-2 sentence explanation.
+- difficulty: A decimal between -2.0 (v. easy) and 2.0 (v. hard). Use 0.0 for average difficulty.
+- sub_topics: 2-3 specific keywords.
 - reframe: {{"reframe_qns": false, "reformed_qns": "", "reframe_options": false, "reformed_options": ""}}
 
-Return ONLY valid JSON with this EXACT structure (no markdown, no code blocks):
-
+### JSON FORMAT (RETURN ONLY THIS):
 {{
   "title": "...",
-  "time": "",
-  "status": "",
   "questions": [
     {{
       "question": "...",
@@ -151,7 +166,7 @@ Return ONLY valid JSON with this EXACT structure (no markdown, no code blocks):
 SOURCE CONTENT:
 {context}
 
-USER TOPIC / FOCUS:
+USER FOCUS (Prioritize this if provided):
 {user_prompt}
 
 JSON OUTPUT:""")

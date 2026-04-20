@@ -16,13 +16,19 @@ export const generateChat = async (req, res) => {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `
-      You are an AI Quiz Assistant for MCQ-GPT. Your goal is to help educators create, manage, and refine quizzes.
-      User message: "${message}"
-      Context: ${JSON.stringify(context)}
+      You are the official MCQ-GPT AI Assistant. Your mission is to empower educators by helping them create high-quality assessments effortlessly.
 
-      Provide a helpful, concise response in markdown format. 
-      If the user wants to generate a quiz, remind them to specify the number of questions.
-      Keep it professional but friendly.
+      USER MESSAGE: "${message}"
+      SYSTEM CONTEXT: ${JSON.stringify(context)}
+
+      GUIDELINES:
+      1. **Proactive Support**: If the user is vague, suggest specific quiz topics or formats (e.g., "Would you like a quiz on React Hooks or Javascript Basics?").
+      2. **Generation Expert**: If the user wants to generate a quiz, explicitly ask for the number of questions if they haven't provided it. Remind them they can upload PDFs, DOCX, or text files.
+      3. **Technical Help**: If they ask about results or reports, guide them to the "View Reports" section of the dashboard.
+      4. **Persona**: Professional, encouraging, and tech-savvy. Use markdown for clarity.
+      5. **Brevity**: Keep responses under 3-4 sentences unless they ask for a long explanation.
+
+      Current Dashboard features: AI Chat Generation, PDF/Docx Upload, Live Quiz Hosting, Student Performance Reports.
     `;
 
     const result = await model.generateContent(prompt);
@@ -478,7 +484,7 @@ export const generateFromFile = async (req, res) => {
         num_questions: Number(num_questions),
         prompt: finalPrompt,
       }),
-      signal: AbortSignal.timeout(300000), // 300s — local LLM is slow
+      signal: AbortSignal.timeout(90000), // 90s — Gemini is fast
     });
 
     if (!pyResponse.ok) {
@@ -519,7 +525,7 @@ export const generateFromPrompt = async (req, res) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt: userPrompt, num_questions: Number(num_questions) }),
-      signal: AbortSignal.timeout(300000),
+      signal: AbortSignal.timeout(90000), // 90s
     });
 
     if (!pyResponse.ok) {
