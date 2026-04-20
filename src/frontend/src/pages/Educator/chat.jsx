@@ -25,6 +25,7 @@ function Chat() {
   });
   const [showAgenticModal, setShowAgenticModal] = useState(false);
   const [agenticUrl, setAgenticUrl] = useState('');
+  const [agenticNumQuestions, setAgenticNumQuestions] = useState(10);
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -58,12 +59,12 @@ function Chat() {
   const callLLM = async (userPrompt, context) => {
     const prompt = userPrompt.toLowerCase();
 
-    // Check for explicit generation commands first
-    if (!context.hasFile && prompt.match(/\d+\s*(questions?|quiz)/)) {
-      const numberMatch = prompt.match(/(\d+)\s*(questions?|quiz)?/);
-      if (numberMatch) {
-        const num = parseInt(numberMatch[1]);
-        if (num >= 5) return `generate_text:${num}`;
+    // Check for explicit generation commands first — natural language like "give me 10 questions on..."
+    if (!context.hasFile) {
+      const numMatch = prompt.match(/(\d+)\s*(questions?|quiz|mcq)/i);
+      if (numMatch) {
+        const num = parseInt(numMatch[1]);
+        if (num >= 1) return `generate_text:${num}:${userPrompt}`;
       }
     }
 
@@ -74,7 +75,7 @@ function Chat() {
     const numberMatch = prompt.match(/(\d+)\s*(questions?|quiz)?/);
     if (numberMatch && context.hasFile) {
       const num = parseInt(numberMatch[1]);
-      if (num >= 5) return `generate:${num}`;
+      if (num >= 1) return `generate:${num}`;
     }
 
     // Default: Call real AI backend for conversational help
@@ -248,21 +249,24 @@ function Chat() {
         setIsLoading(false);
         await generateQuiz(numQuestions, false);
       } else if (llmResponse.startsWith('generate_text:')) {
-        const numQuestions = parseInt(llmResponse.split(':')[1]);
+        const parts = llmResponse.split(':');
+        const numQuestions = parseInt(parts[1]);
+        // Rebuild the text prompt (parts[2] onwards, joining back with ':' in case prompt has colons)
+        const extractedPrompt = parts.slice(2).join(':') || userMessage;
         setIsLoading(true);
         try {
-          await generateQuiz(numQuestions, true, userMessage);
+          await generateQuiz(numQuestions, true, extractedPrompt);
         } catch (err) {
           addAssistantMessage(`Failed to generate quiz from text prompt: ${err.message}`);
         } finally {
           setIsLoading(false);
         }
       } else if (llmResponse.startsWith('generate_text_prompt:')) {
-        const textPrompt = llmResponse.split(':')[1];
+        const textPrompt = llmResponse.substring('generate_text_prompt:'.length);
         setIsLoading(false);
-        // Extract number from prompt or default to 5
+        // Extract number from prompt or default to 10
         const numMatch = textPrompt.match(/(\d+)/);
-        const numQuestions = numMatch ? parseInt(numMatch[1]) : 5;
+        const numQuestions = numMatch ? parseInt(numMatch[1]) : 10;
         await generateQuiz(numQuestions, true, textPrompt);
       } else if (llmResponse.startsWith('regenerate:')) {
         const numQuestions = parseInt(llmResponse.split(':')[1]);
@@ -324,14 +328,12 @@ function Chat() {
 
   const handleAgenticGenerate = async (url) => {
     setShowAgenticModal(false);
-    console.log("AGENTIC URL RECEIVED:", url);
-    addAssistantMessage(`Generating questions from URL...`);
+    console.log("AGENTIC URL RECEIVED:", url, "Num questions:", agenticNumQuestions);
+    addAssistantMessage(`Generating ${agenticNumQuestions} questions from URL...`);
     setIsLoading(true);
 
     try {
-      // Bug 2 fix: api is axios — response body is at response.data, not response.json().
-      // axios also throws automatically on non-2xx, so no .ok check is needed.
-      const response = await api.post("/quizzes/agentic", { url });
+      const response = await api.post("/quizzes/agentic", { url, num_questions: agenticNumQuestions });
       const data = response.data;
       console.log("Received Agentic JSON:", data);
       const quizData = data.quiz || data;
@@ -675,15 +677,23 @@ function Chat() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-black mb-2">
-                  URL
-                </label>
+                <label className="block text-sm font-medium text-black mb-2">URL</label>
                 <input
                   type="url"
                   value={agenticUrl}
                   onChange={(e) => setAgenticUrl(e.target.value)}
-
                   placeholder="https://example.com/article"
+                  className="w-full px-4 py-2 border border-purple-200 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-black mb-2">Number of Questions</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={agenticNumQuestions}
+                  onChange={(e) => setAgenticNumQuestions(parseInt(e.target.value) || 10)}
                   className="w-full px-4 py-2 border border-purple-200 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
               </div>

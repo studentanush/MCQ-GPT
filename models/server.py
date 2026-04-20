@@ -1,7 +1,7 @@
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+# Conditional Google imports moved below
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 from typing import List, Optional
@@ -53,13 +53,13 @@ class Quiz(BaseModel):
 parser = PydanticOutputParser(pydantic_object=Quiz)
 
 # ─── LLM & Embeddings (loaded once at startup) ──────────────────────────────────
-# Choose LLM based on environment
-google_api_key = os.getenv("GOOGLE_API_KEY")
+# Choose LLM based on environment — checks both GOOGLE_API_KEY and API_KEY
+google_api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("API_KEY")
 
 if google_api_key:
     # CLOUD MODE: Use Gemini 1.5 Flash (Perfect for Render/Vercel)
     print("Initialize Cloud LLM (Gemini)...")
-    from langchain_google_genai import HarmCategory, HarmBlockThreshold
+    from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings, HarmCategory, HarmBlockThreshold
     
     # Disable most safety filters to prevent educational content from being blocked
     safety_settings = {
@@ -70,7 +70,7 @@ if google_api_key:
     }
 
     llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
+        model="gemini-1.5-flash",
         google_api_key=google_api_key,
         temperature=0.2, # Slight increase for better question variety
         convert_system_message_to_human=True,
@@ -90,6 +90,7 @@ else:
 
 if google_api_key:
     print("Initializing Cloud Embedding model (Google)...")
+    from langchain_google_genai import GoogleGenerativeAIEmbeddings
     embeddings = GoogleGenerativeAIEmbeddings(
         model="models/embedding-001",
         google_api_key=google_api_key

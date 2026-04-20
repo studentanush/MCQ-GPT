@@ -13,7 +13,7 @@ const genAI = new GoogleGenerativeAI(process.env.API_KEY);
 export const generateChat = async (req, res) => {
   try {
     const { message, context } = req.body;
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const prompt = `
       You are the official MCQ-GPT AI Assistant. Your mission is to empower educators by helping them create high-quality assessments effortlessly.
@@ -385,7 +385,7 @@ export const generateQuiz = async (req, res) => {
 TEXT TO GENERATE QUESTIONS FROM:
 ${text}`;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const response = await model.generateContent(prompt);
 
     // Extract raw text
@@ -445,7 +445,7 @@ export const agenticMode = async (req, res) => {
       ? `${QUIZ_STRUCTURE_PROMPT(num_questions)}\n\nCONTENT FROM URL (${url}):\n${urlContent}`
       : `${QUIZ_STRUCTURE_PROMPT(num_questions)}\n\nCreate questions about the topic found at this URL: ${url}. Use your knowledge about this topic.`;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const response = await model.generateContent(prompt);
 
     let rawText = response.response.text() || "";
@@ -484,7 +484,7 @@ export const generateFromFile = async (req, res) => {
         num_questions: Number(num_questions),
         prompt: finalPrompt,
       }),
-      signal: AbortSignal.timeout(90000), // 90s — Gemini is fast
+      signal: AbortSignal.timeout(300000), // 300s — local/free tier LLM needs time
     });
 
     if (!pyResponse.ok) {
@@ -525,7 +525,7 @@ export const generateFromPrompt = async (req, res) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt: userPrompt, num_questions: Number(num_questions) }),
-      signal: AbortSignal.timeout(90000), // 90s
+      signal: AbortSignal.timeout(300000), // 300s
     });
 
     if (!pyResponse.ok) {
