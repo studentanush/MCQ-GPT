@@ -502,7 +502,6 @@ const StudentReport = () => {
                         </div>
                         <div className="type-progress">
                           <div 
-                            className="type-progress-fill"
                             style={{ 
                               width: `${type.percentage}%`
                             }}

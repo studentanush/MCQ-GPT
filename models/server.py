@@ -13,6 +13,11 @@ import os
 import re
 import shutil
 import uuid
+from dotenv import load_dotenv
+
+# Load the backend .env file so Python gets the exact same API key as Node
+env_path = os.path.join(os.path.dirname(__dirname__), "src", "backend", ".env")
+load_dotenv(env_path)
 
 app = FastAPI()
 
@@ -70,7 +75,7 @@ if google_api_key:
     }
 
     llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
+        model="gemini-2.5-flash",
         google_api_key=google_api_key,
         temperature=0.2, # Slight increase for better question variety
         convert_system_message_to_human=True,
