@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../../services/api';
 import './StudentReport.css';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { toast } from 'react-toastify';
 
 const StudentReport = () => {
@@ -64,7 +64,7 @@ const StudentReport = () => {
             doc.text(`Time Taken: ${reportData.timeTaken}`, pageWidth - 70, 56);
 
             // Summary Table
-            doc.autoTable({
+            autoTable(doc, {
                 startY: 65,
                 head: [['Metric', 'Performance']],
                 body: [
@@ -142,25 +142,29 @@ const StudentReport = () => {
             {/* Header */}
             <header className="report-header">
                 <div className="header-left">
-                    <div className="report-title">MCQ-GPT</div>
+                    <div className="logo-brand">MCQ-GPT</div>
                 </div>
                 <div className="header-center">
-                    <div className="report-title">{reportData.quizTitle}</div>
-                    <div className="report-subtitle">
+                    <div className="quiz-name-display">{reportData.quizTitle}</div>
+                    <div className="report-meta-info">
                         <span>{reportData.studentName}</span>
-                        <span>•</span>
+                        <span className="dot"></span>
                         <span>{reportData.className}</span>
-                        <span>•</span>
+                        <span className="dot"></span>
                         <span>{new Date(reportData.submittedAt).toLocaleDateString()}</span>
                     </div>
                 </div>
                 <div className="header-right">
-                    <button className="action-btn download-btn" onClick={() => generatePDF('report')} disabled={downloadingPDF}>
-                        <i className="fas fa-file-pdf"></i> Download Report
-                    </button>
-                    <button className="action-btn solutions-btn" onClick={() => generatePDF('solutions')}>
-                        <i className="fas fa-lightbulb"></i> View Solutions
-                    </button>
+                    <div className="button-group">
+                        <button className="action-btn download-btn" onClick={() => generatePDF('report')} disabled={downloadingPDF}>
+                            <i className="fas fa-file-pdf"></i>
+                            <span>Report</span>
+                        </button>
+                        <button className="action-btn solutions-btn" onClick={() => generatePDF('solutions')}>
+                            <i className="fas fa-lightbulb"></i>
+                            <span>Solutions</span>
+                        </button>
+                    </div>
                 </div>
             </header>
 
