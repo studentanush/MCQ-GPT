@@ -1954,118 +1954,134 @@
   flex-shrink: 0;
 }
 
-/* Responsive adjustments */
+/* ===== RESPONSIVE REFINEMENTS ===== */
 @media (max-width: 1200px) {
-  .download-btn,
-  .solutions-btn {
-    min-width: 150px;
-    padding: 9px 18px;
-    font-size: 0.88rem;
+  .report-content {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-lg);
+  }
+
+  .report-header {
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+
+  .report-title {
+    font-size: 1.5rem;
   }
 }
 
 @media (max-width: 992px) {
-  /* Stack header on tablet */
   .report-header {
     flex-direction: column;
-    text-align: center;
-    gap: 15px;
+    height: auto;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    position: relative;
   }
-  
-  .header-left,
-  .header-center,
-  .header-right {
+
+  .header-left, .header-center, .header-right {
     width: 100%;
+    max-width: 100%;
+    padding: 0;
   }
-  
+
+  .header-left {
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: var(--spacing-xs);
+  }
+
   .header-right {
     justify-content: center;
-    margin-top: 10px;
+    gap: var(--spacing-md);
+    min-width: auto;
   }
-  
-  .download-btn,
-  .solutions-btn {
-    min-width: 140px;
-    padding: 8px 16px;
+
+  .quick-stats-bar {
+    gap: var(--spacing-lg);
+    padding: var(--spacing-md);
+  }
+
+  .stat-item {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .stat-value {
+    font-size: 1.6rem;
   }
 }
 
 @media (max-width: 768px) {
-  .download-btn,
-  .solutions-btn {
-    min-width: 130px;
-    padding: 8px 14px;
-    font-size: 0.85rem;
+  .analysis-tabs {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding: 0;
   }
-  
-  .header-right {
-    gap: 10px;
-  }
-}
 
-@media (max-width: 576px) {
-  .download-btn,
-  .solutions-btn {
-    min-width: 120px;
-    padding: 7px 12px;
-    font-size: 0.82rem;
+  .tab-btn {
+    padding: var(--spacing-md);
+    font-size: 0.85rem;
+    flex: 1;
   }
-  
-  /* Adjust text for very small screens but keep it visible */
-  .download-btn span,
-  .solutions-btn span {
-    font-size: 0.82rem;
+
+  .tab-content {
+    padding: var(--spacing-lg);
+  }
+
+  .questions-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+
+  .topic-card {
+    padding: var(--spacing-md);
+  }
+
+  .breakdown-item {
+    padding: var(--spacing-md);
+  }
+
+  .report-subtitle {
+    font-size: 0.85rem;
   }
 }
 
 @media (max-width: 480px) {
-  /* On very small screens, use slightly shorter text */
-  .download-btn span::after {
-    content: 'Report';
+  .report-title {
+    font-size: 1.3rem;
   }
-  
-  .solutions-btn span::after {
-    content: 'Solutions';
+
+  .logo-text {
+    display: none;
   }
-  
-  .download-btn span,
-  .solutions-btn span {
+
+  .action-btn {
+    padding: 8px 12px;
     font-size: 0.8rem;
+    flex: 1;
+  }
+
+  .stat-item {
+    min-width: 45%;
+  }
+
+  .questions-stats-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .question-summary {
+    padding: var(--spacing-md);
+  }
+
+  .question-number-circle {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
   }
   
-  .download-btn,
-  .solutions-btn {
-    min-width: 110px;
-    padding: 6px 10px;
+  .topic-header h4 {
+    font-size: 0.9rem;
   }
-}
-
-/* Special case for loading text */
-.download-btn:disabled span,
-.solutions-btn:disabled span {
-  padding: 0 5px;
-}
-
-/* Make sure the button container has enough space */
-.header-right {
-  min-width: 340px; /* Enough for two buttons with text */
-}
-
-@media (max-width: 992px) {
-  .header-right {
-    min-width: auto;
-  }
-}
-
-/* Prevent text wrapping inside buttons */
-.download-btn,
-.solutions-btn {
-  overflow: visible;
-}
-
-/* Add subtle animation for better visibility */
-.download-btn:hover:not(:disabled) span,
-.solutions-btn:hover:not(:disabled) span {
-  position: relative;
-  z-index: 1;
 }
