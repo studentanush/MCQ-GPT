@@ -1,315 +1,716 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Upload, Sparkles, Loader2, Download, Save, RefreshCw, X, FileText, CheckCircle, Info } from 'lucide-react';
+import { Send, Upload, FileText, Loader2, Download, CheckCircle, XCircle, RefreshCw, X, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import api from '../../services/api';
 import { useNavigate } from 'react-router-dom';
-import './chat.css';
-import { toast } from 'react-toastify';
 
-const Chat = () => {
-    const [messages, setMessages] = useState([
-        { 
-            type: 'assistant', 
-            content: "Hello! I'm your AI Quiz Assistant. Upload a document (PDF, DOCX, TXT) or provide a topic prompt, and I'll generate a professional quiz for you." 
+function Chat() {
+  const [messages, setMessages] = useState([
+    {
+      type: 'assistant',
+      content: 'Hello! I\'m your Quiz Generator Assistant. Upload a document (PDF, DOCX, or TXT) and I\'ll help you create custom quizzes. Just tell me what you need!',
+      timestamp: new Date()
+    }
+  ]);
+  const [input, setInput] = useState('');
+  const [file, setFile] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [generatedQuiz, setGeneratedQuiz] = useState(null);
+  const [conversationContext, setConversationContext] = useState({
+    hasFile: false,
+    lastQuizParams: null
+  });
+  const [showAgenticModal, setShowAgenticModal] = useState(false);
+  const [agenticUrl, setAgenticUrl] = useState('');
+  const [agenticNumQuestions, setAgenticNumQuestions] = useState(10);
+
+  const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const navigate = useNavigate();
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const FormattedMessage = ({ content }) => (
+    <ReactMarkdown
+      remarkPlugins={[remarkMath]}
+      rehypePlugins={[rehypeKatex]}
+      components={{
+        p: ({ ...props }) => <p className="text-sm leading-relaxed mb-2" {...props} />,
+        h1: ({ ...props }) => <h1 className="text-lg font-bold my-2" {...props} />,
+        h2: ({ ...props }) => <h2 className="text-base font-semibold my-2" {...props} />,
+        strong: ({ ...props }) => <strong className="font-semibold" {...props} />,
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  )
+
+  const addAssistantMessage = (content) => {
+    setMessages(prev => [...prev, {
+      type: 'assistant',
+      content: content
+    }]);
+  };
+
+  const callLLM = async (userPrompt, context) => {
+    const prompt = userPrompt.toLowerCase();
+
+    // Check for explicit generation commands first — natural language like "give me 10 questions on..."
+    if (!context.hasFile) {
+      const numMatch = prompt.match(/(\d+)\s*(questions?|quiz|mcq)/i);
+      if (numMatch) {
+        const num = parseInt(numMatch[1]);
+        if (num >= 1) return `generate_text:${num}:${userPrompt}`;
+      }
+    }
+
+    if (prompt.includes('regenerate') || prompt.includes('try again')) {
+      if (context.lastQuizParams) return `regenerate:${context.lastQuizParams.numQuestions}`;
+    }
+
+    const numberMatch = prompt.match(/(\d+)\s*(questions?|quiz)?/);
+    if (numberMatch && context.hasFile) {
+      const num = parseInt(numberMatch[1]);
+      if (num >= 1) return `generate:${num}`;
+    }
+
+    // Default: Call real AI backend for conversational help
+    try {
+      const educatorDetails = JSON.parse(sessionStorage.getItem('edu_info'));
+      const response = await api.post("/quizzes/chat", {
+        message: userPrompt,
+        context: {
+          hasFile: context.hasFile,
+          lastQuizTitle: generatedQuiz?.title
         }
-    ]);
-    const [input, setInput] = useState('');
-    const [file, setFile] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [conversationContext, setConversationContext] = useState({ hasFile: false, lastQuizParams: null });
-    const [showAgentic, setShowAgentic] = useState(false);
-    const [agenticUrl, setAgenticUrl] = useState('');
-    const [agenticNum, setAgenticNum] = useState(10);
+      });
+      return response.data.reply;
+    } catch (err) {
+      console.error("Chat API error:", err);
+      // Fallback to text prompt generation if API fails or for generic queries
+      return `generate_text_prompt:${userPrompt}`;
+    }
+  };
 
-    const messagesEndRef = useRef(null);
-    const fileInputRef = useRef(null);
-    const navigate = useNavigate();
 
-    useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  const handleFileSelect = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      const validTypes = [
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain'
+      ];
 
-    const FormattedMessage = ({ content }) => (
-        <ReactMarkdown
-            remarkPlugins={[remarkMath]}
-            rehypePlugins={[rehypeKatex]}
-            components={{
-                p: ({ ...props }) => <p className="leading-relaxed mb-2" {...props} />,
-                h1: ({ ...props }) => <h1 className="text-xl font-bold my-2" {...props} />,
-                h2: ({ ...props }) => <h2 className="text-lg font-semibold my-2" {...props} />,
-                strong: ({ ...props }) => <strong className="font-bold text-white" {...props} />,
-            }}
-        >
-            {content}
-        </ReactMarkdown>
-    );
+      if (validTypes.includes(selectedFile.type)) {
+        setFile(selectedFile);
+        setConversationContext(prev => ({ ...prev, hasFile: true }));
+        setMessages(prev => [...prev, {
+          type: 'user',
+          content: `Uploaded: ${selectedFile.name}`
+        }]);
 
-    const callLLM = async (userPrompt, context) => {
-        const prompt = userPrompt.toLowerCase();
-        
-        // 1. Check for text generation patterns "X questions on topic"
-        const textMatch = prompt.match(/(\d+)\s*(questions?|mcqs?|quiz)/i);
-        if (textMatch && !context.hasFile) {
-            return `generate_text:${parseInt(textMatch[1])}:${userPrompt}`;
+        setTimeout(() => {
+          addAssistantMessage(`Great! I've received "${selectedFile.name}". How many questions would you like me to generate from this document?`);
+        }, 500);
+      } else {
+        setMessages(prev => [...prev, {
+          type: 'error',
+          content: 'Please upload a PDF, DOCX, or TXT file.',
+        }]  );
+      }
+    }
+  };
+
+  const generateQuiz = async (numQuestions, isTextPrompt = false, textPrompt = '') => {
+    setIsLoading(true);
+
+    if (isTextPrompt) {
+      addAssistantMessage(`Generating ${numQuestions} questions from your prompt...`);
+
+      try {
+        // Bug 2 & 3 fix: call the correct endpoint with the right payload.
+        // /quizzes/generate expects raw document text; /quizzes/generate-from-prompt
+        // is the topic/prompt endpoint backed by the Python RAG server.
+        const response = await api.post("/quizzes/generate-from-prompt", {
+          prompt: textPrompt,
+          num_questions: numQuestions
+        });
+        // axios throws on non-2xx — no .ok / .json() needed
+        const data = response.data;
+        console.log("Received JSON:", data);
+        const quizData = data.quiz || data;
+
+        setGeneratedQuiz(quizData);
+        setConversationContext(prev => ({
+          ...prev,
+          lastQuizParams: { numQuestions, isTextPrompt: true, textPrompt }
+        }));
+
+        setMessages(prev => [...prev, {
+          type: "success",
+          content: `Successfully generated "${quizData.title}" with ${quizData.questions?.length} questions!`,
+          quizData
+        }]);
+      } catch (error) {
+        // axios wraps server error details in error.response.data
+        const serverMsg = error.response?.data?.message;
+        setMessages(prev => [...prev, {
+          type: "error",
+          content: `Failed to generate quiz: ${serverMsg || error.message}`
+        }]);
+      } finally {
+        setIsLoading(false);
+      }
+
+      return;
+    }
+
+
+    // Handle file-based generation
+    if (!file) {
+      addAssistantMessage("Oops! It seems the file is missing. Please upload a document again.");
+      setIsLoading(false);
+      return;
+    }
+
+    addAssistantMessage(`Generating ${numQuestions} questions from your document. This may take a moment...`);
+
+    try {
+      const educatorDetails = JSON.parse(sessionStorage.getItem('edu_info'));
+      
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const uploadRes = await api.post('/upload/upload', formData, {
+        headers: { 
+          'Content-Type': 'multipart/form-data',
         }
+      });
 
-        // 2. Check for regeneration
-        if (prompt.includes('regenerate') || prompt.includes('try again')) {
-            if (context.lastQuizParams) return `regenerate:${context.lastQuizParams.numQuestions}`;
-        }
+      const filePath = uploadRes.data.filePath;
 
-        // 3. Check for file-based generation "give me 10 questions"
-        if (context.hasFile && textMatch) {
-            return `generate:${parseInt(textMatch[1])}`;
-        }
+      const response = await api.post('/quizzes/generate-from-file', {
+        filePath,
+        num_questions: numQuestions
+      });
 
-        // 4. Default: Conversational AI
-        try {
-            const response = await api.post("/quizzes/chat", { 
-                message: userPrompt, 
-                context: { hasFile: context.hasFile } 
-            });
-            return response.data.reply;
-        } catch (err) {
-            return `generate_text_prompt:${userPrompt}`;
-        }
-    };
+      const quizData = response.data.quiz || response.data;
 
-    const generateQuiz = async (numQuestions, isTextPrompt = false, textPrompt = '') => {
+      setGeneratedQuiz(quizData);
+      setConversationContext(prev => ({
+        ...prev,
+        lastQuizParams: { numQuestions, fileName: file.name }
+      }));
+
+      setMessages(prev => [...prev, {
+        type: 'success',
+        content: `Successfully generated "${quizData.title}" with ${quizData.questions?.length} questions!`,
+        timestamp: new Date(),
+        quizData
+      }]);
+    } catch (error) {
+      setMessages(prev => [...prev, {
+        type: 'error',
+        content: `Failed to generate quiz: ${error.message}`,
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!input.trim()) return;
+
+    const userMessage = input.trim();
+    setMessages(prev => [...prev, {
+      type: 'user',
+      content: userMessage
+    }]);
+    setInput('');
+    setIsLoading(true);
+
+    try {
+      const llmResponse = await callLLM(userMessage, conversationContext);
+
+      // FIX: Check if llmResponse exists before calling startsWith
+      if (!llmResponse) {
+        addAssistantMessage("I'm not sure how to help with that. Could you please rephrase?");
+        setIsLoading(false);
+        return;
+      }
+
+      if (llmResponse.startsWith('generate:')) {
+        const numQuestions = parseInt(llmResponse.split(':')[1]);
+        setIsLoading(false);
+        await generateQuiz(numQuestions, false);
+      } else if (llmResponse.startsWith('generate_text:')) {
+        const parts = llmResponse.split(':');
+        const numQuestions = parseInt(parts[1]);
+        // Rebuild the text prompt (parts[2] onwards, joining back with ':' in case prompt has colons)
+        const extractedPrompt = parts.slice(2).join(':') || userMessage;
         setIsLoading(true);
         try {
-            let response;
-            if (isTextPrompt) {
-                response = await api.post("/quizzes/generate", {
-                    text: textPrompt,
-                    num_questions: numQuestions
-                });
-            } else {
-                const formData = new FormData();
-                formData.append('file', file);
-                const upRes = await api.post('/upload/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-                response = await api.post('/quizzes/generate-from-file', {
-                    filePath: upRes.data.filePath,
-                    num_questions: numQuestions
-                });
-            }
-
-            const quizData = response.data.quiz || response.data;
-            setConversationContext(prev => ({ ...prev, lastQuizParams: { numQuestions, isTextPrompt, textPrompt } }));
-            
-            setMessages(prev => [...prev, {
-                type: 'success',
-                content: `Created "${quizData.title}" with ${quizData.questions.length} questions.`,
-                quizData
-            }]);
-            toast.success("Quiz generated successfully!");
+          await generateQuiz(numQuestions, true, extractedPrompt);
         } catch (err) {
-            setMessages(prev => [...prev, { type: 'error', content: `Generation failed: ${err.response?.data?.message || err.message}` }]);
-            toast.error("Failed to generate quiz");
+          addAssistantMessage(`Failed to generate quiz from text prompt: ${err.message}`);
         } finally {
-            setIsLoading(false);
+          setIsLoading(false);
         }
-    };
+      } else if (llmResponse.startsWith('generate_text_prompt:')) {
+        const textPrompt = llmResponse.substring('generate_text_prompt:'.length);
+        setIsLoading(false);
+        // Extract number from prompt or default to 10
+        const numMatch = textPrompt.match(/(\d+)/);
+        const numQuestions = numMatch ? parseInt(numMatch[1]) : 10;
+        await generateQuiz(numQuestions, true, textPrompt);
+      } else if (llmResponse.startsWith('regenerate:')) {
+        const numQuestions = parseInt(llmResponse.split(':')[1]);
+        setIsLoading(false);
+        addAssistantMessage("Sure! Let me regenerate the quiz with different questions.");
+        await generateQuiz(numQuestions);
+      } else {
+        setTimeout(() => {
+          addAssistantMessage(llmResponse);
+          setIsLoading(false);
+        }, 500);
+      }
+    } catch (error) {
+      addAssistantMessage(`Sorry, I encountered an error: ${error.message}`);
+      setIsLoading(false);
+    }
+  };
 
-    const handleSend = async () => {
-        if (!input.trim()) return;
-        const userMsg = input.trim();
-        setMessages(p => [...p, { type: 'user', content: userMsg }]);
-        setInput('');
-        setIsLoading(true);
 
-        try {
-            const llmAction = await callLLM(userMsg, conversationContext);
-            
-            if (llmAction.startsWith('generate:')) {
-                const num = parseInt(llmAction.split(':')[1]);
-                await generateQuiz(num, false);
-            } else if (llmAction.startsWith('generate_text:')) {
-                const parts = llmAction.split(':');
-                await generateQuiz(parseInt(parts[1]), true, parts.slice(2).join(':'));
-            } else if (llmAction.startsWith('generate_text_prompt:')) {
-                const prompt = llmAction.substring('generate_text_prompt:'.length);
-                const num = prompt.match(/(\d+)/)?.[0] || 10;
-                await generateQuiz(num, true, prompt);
-            } else if (llmAction.startsWith('regenerate:')) {
-                await generateQuiz(parseInt(llmAction.split(':')[1]), conversationContext.lastQuizParams?.isTextPrompt, conversationContext.lastQuizParams?.textPrompt);
-            } else {
-                setMessages(p => [...p, { type: 'assistant', content: llmAction }]);
-            }
-        } catch (err) {
-            setMessages(p => [...p, { type: 'assistant', content: "I encountered an error. Please try again." }]);
-        } finally {
-            setIsLoading(false);
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  const handleRegenerate = () => {
+    const params = conversationContext.lastQuizParams;
+    if (!params) return;
+
+    // Case 1: Regenerate from text prompt
+    if (params.isTextPrompt) {
+      setInput(`Regenerate ${params.numQuestions} questions from: ${params.textPrompt}`);
+      return;
+    }
+
+    // Case 2: Regenerate from agentic URL
+    if (params.agenticUrl) {
+      setInput(`Regenerate quiz from URL: ${params.agenticUrl}`);
+      return;
+    }
+
+    // Case 3: Regenerate from document
+    if (params.numQuestions) {
+      setInput(`Regenerate ${params.numQuestions} questions`);
+      return;
+    }
+  };
+
+
+  const handleAttach = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAgenticMode = () => {
+    setShowAgenticModal(true);
+  };
+
+
+  const handleAgenticGenerate = async (url) => {
+    setShowAgenticModal(false);
+    console.log("AGENTIC URL RECEIVED:", url, "Num questions:", agenticNumQuestions);
+    addAssistantMessage(`Generating ${agenticNumQuestions} questions from URL...`);
+    setIsLoading(true);
+
+    try {
+      const response = await api.post("/quizzes/agentic", { url, num_questions: agenticNumQuestions });
+      const data = response.data;
+      console.log("Received Agentic JSON:", data);
+      const quizData = data.quiz || data;
+
+      setGeneratedQuiz(quizData);
+
+      setConversationContext(prev => ({
+        ...prev,
+        lastQuizParams: { agenticUrl: url }
+      }));
+
+      setMessages(prev => [
+        ...prev,
+        {
+          type: "success",
+          content: `Successfully generated "${quizData.title}" with ${quizData.questions?.length} questions!`,
+          quizData
         }
-    };
+      ]);
 
-    const handleFileSelect = (e) => {
-        const selectedFile = e.target.files[0];
-        if (selectedFile) {
-            setFile(selectedFile);
-            setConversationContext(p => ({ ...p, hasFile: true }));
-            setMessages(p => [...p, { type: 'user', content: `Uploaded: ${selectedFile.name}` }]);
-            setMessages(p => [...p, { type: 'assistant', content: `Received "${selectedFile.name}". How many questions should I generate from it?` }]);
+    } catch (error) {
+      const serverMsg = error.response?.data?.message;
+      setMessages(prev => [
+        ...prev,
+        {
+          type: "error",
+          content: `Failed to generate agentic quiz: ${serverMsg || error.message}`
         }
-    };
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    const handleSaveQuiz = async (quiz) => {
-        try {
-            await api.post("/quizzes/create", { ...quiz, time: quiz.time || "20", status: 'Published' });
-            toast.success("Quiz saved to library!");
-        } catch (err) {
-            toast.error("Failed to save quiz");
-        }
-    };
 
-    const handleAgentic = async () => {
-        setIsLoading(true);
-        setShowAgentic(false);
-        setMessages(p => [...p, { type: 'user', content: `Generate ${agenticNum} questions from URL: ${agenticUrl}` }]);
-        try {
-            const res = await api.post("/quizzes/agentic", { url: agenticUrl, num_questions: agenticNum });
-            const quiz = res.data.quiz || res.data;
-            setMessages(p => [...p, { type: 'success', content: `Agentic quiz "${quiz.title}" generated!`, quizData: quiz }]);
-        } catch (err) {
-            toast.error("Agentic generation failed");
-        } finally {
-            setIsLoading(false);
-        }
-    };
+  const handleSaveQuiz = async (quizData) => {
+    try {
+      // TODO: Replace with actual endpoint
+      const educatorDetails = JSON.parse(sessionStorage.getItem('edu_info'));
 
-    return (
-        <div className="chat-container">
-            <header className="chat-header">
-                <div>
-                    <h2 style={{fontWeight: 800, fontSize: '1.2rem'}}>AI Quiz Assistant</h2>
-                    <p style={{fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)'}}>Intelligent Quiz Generation Engine</p>
+      const response = await api.post("/quizzes/create",{
+        ...quizData,
+        time: quizData.time || "15"
+      });
+      // const response = await fetch('/api/quiz/save', {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //   },
+      //   body: JSON.stringify(quizData)
+      // });
+
+      if (response.data.success) {
+        addAssistantMessage("âœ… Quiz saved successfully! You can access it from your saved quizzes.");
+      } else {
+        addAssistantMessage("âŒ Failed to save quiz. Please try again.");
+      }
+
+      //navigate
+    } catch (error) {
+      console.error('Error saving quiz:', error);
+      addAssistantMessage("âŒ Error saving quiz. Please try again.");
+    }
+  };
+
+  const downloadQuiz = () => {
+    if (!generatedQuiz) return;
+
+    const dataStr = JSON.stringify(generatedQuiz, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    // Use .title (our field name); fallback to 'quiz' if undefined
+    link.download = `${(generatedQuiz.title || generatedQuiz.quiz_name || 'quiz').replace(/\s+/g, '_')}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const renderMessage = (msg, index) => {
+    switch (msg.type) {
+      case 'user':
+        return (
+          <div key={index} className="flex justify-end mb-4">
+            <div className="max-w-[85%] md:max-w-[70%]">
+              <div className=" text-black rounded-2xl px-4 py-3 shadow-md bg-white">
+                <FormattedMessage content={msg.content} />
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'assistant':
+        return (
+          <div key={index} className="flex justify-start mb-4">
+            <div className="max-w-[85%] md:max-w-[70%]">
+              <div className="bg-white border border-gray-200 text-gray-800 rounded-2xl px-4 py-3 shadow-md">
+                <FormattedMessage content={msg.content} />
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'success':
+        return (
+          <div key={index} className="flex justify-start mb-4">
+            <div className="max-w-[85%] bg-white">
+              <div className="border border-green-200 text-gray-800 rounded-2xl px-5 py-4 shadow-md">
+                {/* Success Header */}
+                <div className="flex items-start gap-2 mb-4">
+                  <CheckCircle className="w-5 h-5 text-green-600 flex shrink-0 mt-0.5" />
+                  <p className="text-sm font-medium">{msg.content}</p>
                 </div>
-                <div style={{display: 'flex', gap: '10px'}}>
-                    <button className="chat-tool-btn" onClick={() => navigate('/educator/generated')}><FileText size={14}/> Library</button>
-                    <button className="chat-tool-btn" onClick={() => navigate('/educator/dashboard')}><X size={14}/></button>
-                </div>
-            </header>
 
-            <div className="chat-messages">
-                {messages.map((m, i) => (
-                    <div key={i} className={`message-wrapper message-${m.type}`}>
-                        {m.type === 'success' ? (
-                            <div className="quiz-preview-message" style={{width: '100%', maxWidth: '800px'}}>
-                                <div className="flex justify-between items-start mb-6 border-b border-white/10 pb-4">
-                                    <div>
-                                        <h3 className="text-xl font-bold text-white mb-2">{m.quizData.title}</h3>
-                                        <div className="flex gap-4 text-xs text-white/50">
-                                            <span><FaQuestionCircle className="inline mr-1"/> {m.quizData.questions.length} Questions</span>
-                                            <span><FaClock className="inline mr-1"/> {m.quizData.time || 20} mins</span>
-                                        </div>
-                                    </div>
-                                    <button className="action-btn download-btn" onClick={() => handleSaveQuiz(m.quizData)}><Save size={16}/> Save to Library</button>
-                                </div>
-                                
-                                <div className="space-y-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                                    {m.quizData.questions.map((q, idx) => (
-                                        <div key={idx} className="preview-question-card" style={{background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)'}}>
-                                            <div className="flex justify-between mb-3">
-                                                <span className="text-xs font-bold text-purple-400">QUESTION {idx + 1}</span>
-                                                <span className="text-[10px] uppercase tracking-wider opacity-40">{q.difficulty || 'Medium'}</span>
-                                            </div>
-                                            <p className="text-white font-medium mb-4">{q.question}</p>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                                                {q.options.map((opt, optIdx) => {
-                                                    const letter = String.fromCharCode(65 + optIdx);
-                                                    const isCorrect = q.correctAnswerOption === letter;
-                                                    return (
-                                                        <div key={optIdx} className={`p-3 rounded-xl text-sm border ${isCorrect ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400' : 'border-white/5 bg-white/2 text-white/60'}`}>
-                                                            <span className="font-bold mr-2">{letter}.</span> {opt}
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                            <div className="p-3 rounded-lg bg-white/3 border border-white/5 text-xs text-white/40">
-                                                <strong className="text-purple-400 block mb-1">Explanation:</strong>
-                                                {q.explanation || 'No explanation provided.'}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                {/* Quiz Questions Display */}
+                {msg.quizData && (
+                  <div className="space-y-4">
+                    <div className="border-t border-green-200 pt-4">
+                      <h3 className="font-semibold text-gray-800 mb-3 text-base">
+                        {msg.quizData.title}
+                      </h3>
+
+                      {/* Questions List */}
+                      <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+                        {msg.quizData.questions.map((q, idx) => (
+                          <div key={idx} className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            {/* Question Header */}
+                            <div className="flex items-start justify-between mb-2">
+                              <h4 className="font-semibold text-gray-900 text-sm">
+                                Question {idx + 1}
+                              </h4>
+                              <span className={`text-xs px-2 py-1 rounded-full ${q.difficulty === 'easy'
+                                ? 'bg-green-100 text-green-700'
+                                : q.difficulty === 'medium'
+                                  ? 'bg-yellow-100 text-yellow-700'
+                                  : 'bg-red-100 text-red-700'
+                                }`}>
+                                {q.difficulty}
+                              </span>
                             </div>
-                        ) : (
-                            <div className="message-bubble">
-                                <FormattedMessage content={m.content} />
+
+                            {/* Question Text */}
+                            <p className="text-sm text-gray-800 mb-3 font-medium">
+                              {q.question}
+                            </p>
+
+                            {/* Options */}
+                            <div className="space-y-1.5 mb-3">
+                              {q.options.map((option, optIdx) => {
+                                const isCorrect = option.startsWith(q.correctAnswerOption);
+                                return (
+                                  <div
+                                    key={optIdx}
+                                    className={`text-xs px-3 py-2 rounded-md ${isCorrect
+                                      ? 'bg-green-50 border border-green-300 text-green-800 font-medium'
+                                      : 'bg-gray-50 border border-gray-200 text-gray-700'
+                                      }`}
+                                  >
+                                    {option}
+                                    {isCorrect && <span className="ml-2">✔️</span>}
+                                  </div>
+                                );
+                              })}
                             </div>
-                        )}
+
+                            {/* Explanation */}
+                            <div className="bg-blue-50 border border-blue-200 rounded-md p-2.5 mt-2">
+                              <p className="text-xs text-gray-700">
+                                <span className="font-semibold text-blue-700">Explanation:</span> {q.explanation}
+                              </p>
+                            </div>
+
+                            {/* Sub Topics */}
+                            {q.sub_topics && q.sub_topics.length > 0 && (
+                              <div className="flex gap-1.5 mt-2 flex-wrap">
+                                {q.sub_topics.map((topic, topicIdx) => (
+                                  <span
+                                    key={topicIdx}
+                                    className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full"
+                                  >
+                                    {topic}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                ))}
-                {isLoading && (
-                    <div className="message-wrapper message-assistant">
-                        <div className="message-bubble flex items-center gap-3">
-                            <Loader2 className="animate-spin text-purple-400" /> 
-                            <span>Thinking...</span>
-                        </div>
+
+                    {/* Action Buttons at Bottom - Aligned Left */}
+                    <div className="border-t border-green-200 pt-4 flex gap-2">
+                      <button
+                        onClick={() => handleSaveQuiz(msg.quizData)}
+                        className="px-4 py-2 bg-[#8F00FF] text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-sm flex items-center gap-2"
+                      >
+                        <Download className="w-4 h-4" />
+                        Save Quiz
+                      </button>
+                      <button
+                        onClick={downloadQuiz}
+                        className="px-4 py-2 bg-[#8F00FF] text-white text-sm font-medium rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all shadow-sm flex items-center gap-2"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download JSON
+                      </button>
                     </div>
+                  </div>
                 )}
-                <div ref={messagesEndRef} />
+              </div>
             </div>
+          </div>
+        );
 
-            <div className="chat-input-wrapper">
-                <div className="chat-input-bar">
-                    {file && (
-                        <div className="flex items-center gap-2 mb-2 p-2 bg-purple-500/10 border border-purple-500/20 rounded-xl w-fit">
-                            <FileText size={14} className="text-purple-400" />
-                            <span className="text-xs font-medium text-purple-200">{file.name}</span>
-                            <X size={14} className="cursor-pointer text-white/40 hover:text-white" onClick={() => {setFile(null); setConversationContext(p => ({...p, hasFile: false}));}} />
-                        </div>
-                    )}
-                    <div className="input-top">
-                        <input 
-                            className="input-main" 
-                            placeholder={file ? `Ask ${file.name}...` : "Upload a file or type a topic..."}
-                            value={input}
-                            onChange={e => setInput(e.target.value)}
-                            onKeyPress={e => e.key === 'Enter' && handleSend()}
-                        />
-                        <button className="action-btn download-btn h-[46px] w-[46px] p-0 flex items-center justify-center" onClick={handleSend} disabled={isLoading}>
-                            <Send size={18}/>
-                        </button>
-                    </div>
-                    <div className="input-actions mt-2 flex justify-between">
-                        <div className="flex gap-2">
-                            <button className="chat-tool-btn" onClick={() => fileInputRef.current.click()}><Upload size={14}/> Attach Doc</button>
-                            <button className="chat-tool-btn" onClick={() => setShowAgentic(true)}><Sparkles size={14}/> Agentic URL</button>
-                        </div>
-                        <div className="text-[10px] text-white/20 uppercase tracking-widest flex items-center gap-2">
-                            <Info size={10}/> Press Enter to Send
-                        </div>
-                    </div>
+      case 'error':
+        return (
+          <div key={index} className="flex justify-start mb-4">
+            <div className="max-w-[70%]">
+              <div className="bg-red-50 border border-red-200 text-red-800 rounded-2xl px-4 py-3 shadow-md">
+                <div className="flex items-start gap-2">
+                  <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                 </div>
+              </div>
             </div>
+          </div>
+        );
 
-            <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileSelect} accept=".pdf,.docx,.txt" />
+      default:
+        return null;
+    }
+  };
 
-            {showAgentic && (
-                <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/60 backdrop-blur-md p-6">
-                    <div className="quiz-modal-content w-full max-w-md p-8 border border-white/10 bg-[#0f1117] rounded-[32px]">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-bold flex items-center gap-2"><Sparkles className="text-purple-400"/> Agentic Mode</h2>
-                            <X className="cursor-pointer opacity-40 hover:opacity-100" onClick={() => setShowAgentic(false)}/>
-                        </div>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-xs uppercase tracking-widest text-white/40 mb-2">Target URL</label>
-                                <input className="search-input w-full" placeholder="https://..." value={agenticUrl} onChange={e => setAgenticUrl(e.target.value)} />
-                            </div>
-                            <div>
-                                <label className="block text-xs uppercase tracking-widest text-white/40 mb-2">Number of Questions</label>
-                                <input type="number" className="search-input w-full" value={agenticNum} onChange={e => setAgenticNum(e.target.value)} />
-                            </div>
-                            <button className="action-btn download-btn w-full py-4 mt-4" onClick={handleAgentic}>Generate from URL</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+  return (
+    <div className="flex flex-col h-screen ">
+      {/* Header */}
+
+      <p className="text-sm text-white text-center relative bottom-10 ">Create custom quizzes from your documents or give a text prompt</p>
+
+
+      {/* Messages Container */}
+      <div className="flex-1 overflow-y-auto px-6 py-6 bg-[#0c001e]">
+        <div className="max-w-5xl mx-auto">
+          {messages.map((msg, index) => renderMessage(msg, index))}
+          {isLoading && (
+            <div className="flex justify-start mb-4">
+              <div className="bg-white border border-purple-200 rounded-2xl px-4 py-3 shadow-md">
+                <Loader2 className="w-5 h-5 text-purple-600 animate-spin" />
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
         </div>
-    );
-};
+      </div>
+
+      {/* Input Container - Purple/Lavender theme matching image */}
+      <div className="bg-[#0c001e] backdrop-blur-sm px-6 py-4">
+        <div className="max-w-5xl mx-auto">
+          <div className=" bg-[#100027] border-2 border-white rounded-3xl p-4 shadow-lg ">
+            {/* Action Buttons Row */}
+            <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-3">
+              <button
+                onClick={handleAttach}
+                className="px-3 md:px-4 py-2 bg-white/90 text-gray-700 text-xs md:text-sm font-medium rounded-full hover:bg-white hover:shadow-md transition-all flex items-center gap-2 border border-purple-200"
+              >
+                <Upload className="w-4 h-4" />
+                Attach
+              </button>
+
+              <button
+                onClick={handleRegenerate}
+                disabled={isLoading}
+                className="px-3 md:px-4 py-2 bg-white/90 text-gray-700 text-xs md:text-sm font-medium rounded-full hover:bg-white hover:shadow-md transition-all flex items-center gap-2 border border-purple-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Regenerate
+              </button>
+
+              <button
+                onClick={handleAgenticMode}
+                disabled={isLoading}
+                className="px-3 md:px-4 py-2 bg-white/90 text-gray-700 text-xs md:text-sm font-medium rounded-full hover:bg-white hover:shadow-md transition-all flex items-center gap-2 border border-purple-200"
+              >
+                <Sparkles className="w-4 h-4" />
+                Agentic Mode
+              </button>
+            </div>
+
+            {/* Input Area */}
+            <div className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-sm focus-within:ring-0 focus-within:outline-none">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Upload a doc or a text prompt"
+                className="flex-1 outline-none text-gray-700 placeholder-gray-400 text-sm bg-transparent focus:outline-none focus:ring-0 focus:border-none"
+                disabled={isLoading}
+              />
+              <button
+                onClick={handleSubmit}
+                disabled={isLoading || !input.trim()}
+                className="p-2.5 bg-linear-to-r from-purple-600 to-indigo-600 text-white rounded-full hover:from-purple-700 hover:to-indigo-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-0"
+              >
+                <Send color='black' className="w-4 h-4 text-center" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Hidden File Input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileSelect}
+        accept=".pdf,.docx,.txt"
+        className="hidden"
+      />
+
+      {/* Agentic Mode Modal */}
+      {showAgenticModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold bg-linear-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
+                <Sparkles className="w-6 h-6 text-purple-600" />
+                Agentic Mode
+              </h2>
+              <button
+                onClick={() => setShowAgenticModal(false)}
+                className="p-1 hover:bg-purple-50 rounded-full transition-colors"
+              >
+                <X className="w-6 h-6 text-gray-500" />
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Generate a quiz from a URL
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-black mb-2">URL</label>
+                <input
+                  type="url"
+                  value={agenticUrl}
+                  onChange={(e) => setAgenticUrl(e.target.value)}
+                  placeholder="https://example.com/article"
+                  className="w-full px-4 py-2 border border-purple-200 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-black mb-2">Number of Questions</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={agenticNumQuestions}
+                  onChange={(e) => setAgenticNumQuestions(parseInt(e.target.value) || 10)}
+                  className="w-full px-4 py-2 border border-purple-200 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+
+              <button
+                onClick={() => handleAgenticGenerate(agenticUrl)}
+                disabled={!agenticUrl.trim()}
+                className="w-full px-6 py-3 bg-linear-to-r from-purple-600 to-indigo-600 text-black font-medium rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Generate Quiz
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default Chat;

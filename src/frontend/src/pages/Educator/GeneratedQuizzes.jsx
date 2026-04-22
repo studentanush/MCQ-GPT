@@ -9,275 +9,449 @@ import {
   FaTrash, 
   FaSave,
   FaCheckCircle,
-  FaSearch,
-  FaSyncAlt,
   FaQuestionCircle
 } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
-import './GeneratedQuizzes.css';
-import { toast } from 'react-toastify';
+
+
 
 const GeneratedQuizzes = () => {
-    const [quizzes, setQuizzes] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [selectedQuiz, setSelectedQuiz] = useState(null);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [editMode, setEditMode] = useState(false);
-    const [editedQuiz, setEditedQuiz] = useState(null);
-    const navigate = useNavigate();
+  const [quizes, setQuizes] = useState([]);
+  const [selectedQuiz, setSelectedQuiz] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [toast, setToast] = useState(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editedQuiz, setEditedQuiz] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const navigate = useNavigate();
 
-    useEffect(() => { fetchQuizzes(); }, []);
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
-    const fetchQuizzes = async () => {
-        try {
-            setLoading(true);
-            const response = await api.get("/quizzes/getUserQuizes");
-            setQuizzes(response.data);
-        } catch (err) {
-            toast.error("Failed to load quizzes");
-        } finally {
-            setLoading(false);
+  const getAuthHeader = () => {
+    const eduInfo = sessionStorage.getItem('edu_info');
+    if (!eduInfo) return null;
+    const { token } = JSON.parse(eduInfo);
+    return { Authorization: token };
+  };
+
+  // ─── Fetch quizzes ────────────────────────────────────────
+  const fetchQuizes = async () => {
+    const headers = getAuthHeader();
+    if (!headers) {
+      setLoading(false);
+      setError('Please log in to view your quizzes.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      const response = await api.get("/quizzes/getUserQuizes");
+      setQuizes(response.data);
+    } catch (err) {
+      console.error('Error fetching quizzes:', err);
+      setError('Failed to load quizzes. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchQuizes();
+  }, []);
+
+  // ─── Handlers ────────────────────────────────────────────
+  const handleOpenDetail = (quiz) => {
+    setSelectedQuiz(quiz);
+    setEditMode(false);
+    setEditedQuiz(null);
+  };
+
+  const handleHostLive = (e, quizId) => {
+    e.stopPropagation();
+    navigate(`/educator/live-quiz/${quizId}`);
+  };
+
+  const handleEdit = () => {
+    setEditMode(true);
+    setEditedQuiz(JSON.parse(JSON.stringify(selectedQuiz))); // deep clone
+  };
+
+  const handleCancelEdit = () => {
+    setEditMode(false);
+    setEditedQuiz(null);
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Are you sure you want to delete "${selectedQuiz.title}"? This cannot be undone.`)) return;
+
+    const headers = getAuthHeader();
+    if (!headers) return;
+
+    setDeleting(true);
+    try {
+      await api.delete(`/quizzes/delete/${selectedQuiz._id}`);
+      setQuizes(prev => prev.filter(q => q._id !== selectedQuiz._id));
+      setSelectedQuiz(null);
+      showToast('Quiz deleted successfully.', 'success');
+    } catch (err) {
+      console.error('Delete error:', err);
+      showToast(err.response?.data?.message || 'Failed to delete quiz.', 'error');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!editedQuiz) return;
+
+    const headers = getAuthHeader();
+    if (!headers) return;
+
+    setSaving(true);
+    try {
+      const response = await api.put(
+        `/quizzes/update/${editedQuiz._id}`,
+        {
+          title: editedQuiz.title,
+          time: editedQuiz.time,
+          status: editedQuiz.status,
+          questions: editedQuiz.questions,
         }
-    };
+      );
 
-    const handleDelete = async (quizId) => {
-        if (!window.confirm("Are you sure? This cannot be undone.")) return;
-        try {
-            await api.delete(`/quizzes/delete/${quizId}`);
-            setQuizzes(q => q.filter(quiz => quiz._id !== quizId));
-            toast.success("Quiz deleted");
-            if (selectedQuiz?._id === quizId) setSelectedQuiz(null);
-        } catch (err) {
-            toast.error("Delete failed");
-        }
-    };
+      // Update local state
+      setQuizes(prev => prev.map(q => q._id === editedQuiz._id ? { ...q, ...editedQuiz } : q));
+      setSelectedQuiz(editedQuiz);
+      setEditMode(false);
+      setEditedQuiz(null);
+      showToast('Quiz saved successfully!', 'success');
+    } catch (err) {
+      console.error('Save error:', err);
+      // If backend doesn't have update endpoint yet, save optimistically
+      setQuizes(prev => prev.map(q => q._id === editedQuiz._id ? { ...q, ...editedQuiz } : q));
+      setSelectedQuiz(editedQuiz);
+      setEditMode(false);
+      setEditedQuiz(null);
+      showToast('Changes saved locally. (Backend update endpoint needed)', 'warning');
+    } finally {
+      setSaving(false);
+    }
+  };
 
-    const handleSave = async () => {
-        try {
-            await api.put(`/quizzes/update/${editedQuiz._id}`, editedQuiz);
-            setQuizzes(q => q.map(quiz => quiz._id === editedQuiz._id ? editedQuiz : quiz));
-            setSelectedQuiz(editedQuiz);
-            setEditMode(false);
-            toast.success("Changes saved successfully!");
-        } catch (err) {
-            // Fallback if update endpoint has issues, at least update local state for UI feedback
-            setQuizzes(q => q.map(quiz => quiz._id === editedQuiz._id ? editedQuiz : quiz));
-            setSelectedQuiz(editedQuiz);
-            setEditMode(false);
-            toast.info("Saved locally (Sync pending)");
-        }
-    };
+  // ─── Formatting ──────────────────────────────────────────
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      year: 'numeric', month: 'short', day: 'numeric'
+    });
+  };
 
-    const filteredQuizzes = quizzes.filter(q => 
-        q.title.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  const getStatusStyle = (status) => {
+    if (!status) return { bg: 'bg-orange-900/30', text: 'text-orange-400', border: 'border-orange-800' };
+    const s = status.toLowerCase();
+    if (s === 'published') return { bg: 'bg-emerald-900/30', text: 'text-emerald-400', border: 'border-emerald-800' };
+    if (s === 'live') return { bg: 'bg-red-900/30', text: 'text-red-400', border: 'border-red-700' };
+    return { bg: 'bg-orange-900/30', text: 'text-orange-400', border: 'border-orange-800' };
+  };
 
-    const handleOptionEdit = (qIdx, oIdx, val) => {
-        const newQs = [...editedQuiz.questions];
-        const newOpts = [...newQs[qIdx].options];
-        newOpts[oIdx] = val;
-        newQs[qIdx] = { ...newQs[qIdx], options: newOpts };
-        setEditedQuiz({ ...editedQuiz, questions: newQs });
-    };
+  const currentData = editMode ? editedQuiz : selectedQuiz;
 
-    if (loading) return <div className="generated-quizzes"><div className="report-loading"><div className="loading-spinner"></div></div></div>;
+  return (
+    <div className="generated-quizzes">
 
-    return (
-        <div className="generated-quizzes">
-            <header className="library-header">
-                <div>
-                    <h1 className="library-title">Academic Library</h1>
-                    <p style={{color: 'rgba(255,255,255,0.4)', marginTop: '4px'}}>Manage, edit and host your generated assessments.</p>
-                </div>
-                <button className="user-profile" onClick={fetchQuizzes}><FaSyncAlt /> Refresh Database</button>
-            </header>
-
-            <div className="library-filters">
-                <div style={{position: 'relative', flex: 1}}>
-                    <FaSearch style={{position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.3)'}} />
-                    <input 
-                        className="search-input" 
-                        placeholder="Search by quiz title..." 
-                        style={{paddingLeft: '45px'}}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
-                <button className="action-btn download-btn" onClick={() => navigate('/educator/chat')}>+ Create Quiz</button>
-            </div>
-
-            <div className="quiz-grid">
-                {filteredQuizzes.length > 0 ? filteredQuizzes.map(quiz => (
-                    <div key={quiz._id} className="library-card" onClick={() => { setSelectedQuiz(quiz); setEditMode(false); }}>
-                        <div className={`card-status status-tag-${(quiz.status || 'draft').toLowerCase()}`}>
-                            {quiz.status || 'Draft'}
-                        </div>
-                        <div className="card-icon"><FaQuestionCircle /></div>
-                        <h3 className="card-title">{quiz.title}</h3>
-                        <div className="card-stats">
-                            <div className="stat-row"><FaClock /> {quiz.time || 20} mins limit</div>
-                            <div className="stat-row"><i className="fas fa-list"></i> {quiz.questions?.length || 0} Questions</div>
-                            <div className="stat-row"><FaCalendarAlt /> Created {new Date(quiz.createdAt).toLocaleDateString()}</div>
-                        </div>
-                        <div className="card-actions">
-                            <button className="action-btn download-btn" style={{width: '100%'}} onClick={(e) => { e.stopPropagation(); navigate(`/educator/live-quiz/${quiz._id}`); }}>
-                                <FaBroadcastTower /> Start Live Session
-                            </button>
-                        </div>
-                    </div>
-                )) : (
-                    <div style={{gridColumn: '1/-1', textAlign: 'center', padding: '100px 0'}}>
-                        <div style={{fontSize: '3.5rem', marginBottom: '20px'}}>📚</div>
-                        <h3 style={{fontSize: '1.5rem', fontWeight: 700}}>Database Empty</h3>
-                        <p style={{color: 'rgba(255,255,255,0.4)', marginTop: '8px'}}>Generate some quizzes using AI to populate your library.</p>
-                    </div>
-                )}
-            </div>
-
-            {/* HIGH QUALITY DETAIL / EDIT MODAL */}
-            {selectedQuiz && (
-                <div className="fixed inset-0 z-[2000] flex items-center justify-center quiz-modal-overlay p-6">
-                    <div className="quiz-modal-content w-full max-w-5xl max-h-[95vh] flex flex-col scale-in">
-                        <div className="modal-header flex justify-between items-center bg-[#1a1c24]/50 backdrop-blur-md">
-                            <div>
-                                {editMode ? (
-                                    <input 
-                                        className="search-input text-xl font-bold border-b border-purple-500/50 bg-transparent rounded-none p-0 focus:border-purple-500" 
-                                        style={{width: '400px'}}
-                                        value={editedQuiz.title} 
-                                        onChange={e => setEditedQuiz({...editedQuiz, title: e.target.value})}
-                                    />
-                                ) : (
-                                    <h2 style={{fontSize: '1.6rem', fontWeight: 800, color: 'white'}}>{selectedQuiz.title}</h2>
-                                )}
-                                <div className="stat-row" style={{marginTop: '10px', fontSize: '0.8rem'}}>
-                                    <span className="flex items-center gap-1"><FaQuestionCircle className="text-purple-400"/> {selectedQuiz.questions?.length} Questions</span>
-                                    <span className="opacity-20">|</span>
-                                    <span className="flex items-center gap-1"><FaClock className="text-purple-400"/> {editMode ? 
-                                        <input className="bg-transparent border-b border-white/20 w-10 outline-none text-center" value={editedQuiz.time} onChange={e => setEditedQuiz({...editedQuiz, time: e.target.value})} /> 
-                                    : selectedQuiz.time || 20} mins</span>
-                                </div>
-                            </div>
-                            <button className="user-profile p-3" onClick={() => { setSelectedQuiz(null); setEditMode(false); }}><FaTimes size={18}/></button>
-                        </div>
-
-                        <div className="modal-body overflow-y-auto flex-1 p-8 space-y-8 custom-scrollbar">
-                            {(editMode ? editedQuiz.questions : selectedQuiz.questions).map((q, qIdx) => (
-                                <div key={qIdx} className="question-preview-card p-6 border border-white/5 bg-white/[0.01] rounded-3xl">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="flex items-center gap-3">
-                                            <span className="h-8 w-8 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 font-bold text-xs">Q{qIdx + 1}</span>
-                                            {editMode ? (
-                                                <textarea 
-                                                    className="search-input w-[600px] text-base bg-white/2 border-white/10" 
-                                                    rows={1}
-                                                    value={q.question} 
-                                                    onChange={e => {
-                                                        const newQs = [...editedQuiz.questions];
-                                                        newQs[qIdx].question = e.target.value;
-                                                        setEditedQuiz({...editedQuiz, questions: newQs});
-                                                    }}
-                                                />
-                                            ) : (
-                                                <h4 className="text-lg font-semibold text-white/90 leading-relaxed">{q.question}</h4>
-                                            )}
-                                        </div>
-                                        <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full ${q.difficulty === 'Hard' ? 'bg-red-500/10 text-red-400' : q.difficulty === 'Easy' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-blue-500/10 text-blue-400'}`}>
-                                            {q.difficulty || 'Medium'}
-                                        </span>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                                        {q.options.map((opt, oIdx) => {
-                                            const letter = String.fromCharCode(65 + oIdx);
-                                            const isCorrect = q.correctAnswerOption === letter;
-                                            return (
-                                                <div key={oIdx} className={`p-4 rounded-2xl border transition-all ${isCorrect ? 'border-emerald-500/40 bg-emerald-500/5 text-emerald-400' : 'border-white/5 bg-white/[0.02] text-white/60'}`}>
-                                                    <div className="flex items-center gap-3">
-                                                        <span className={`font-bold ${isCorrect ? 'text-emerald-500' : 'opacity-30'}`}>{letter}</span>
-                                                        {editMode ? (
-                                                            <input 
-                                                                className="bg-transparent flex-1 outline-none text-white/80" 
-                                                                value={opt} 
-                                                                onChange={e => handleOptionEdit(qIdx, oIdx, e.target.value)} 
-                                                            />
-                                                        ) : (
-                                                            <span className="flex-1">{opt}</span>
-                                                        )}
-                                                        {isCorrect && <FaCheckCircle className="text-emerald-500"/>}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-
-                                    <div className="mt-6 p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                                        <div className="flex gap-2 mb-2 items-center">
-                                            <FaCheckCircle className="text-emerald-500" size={14}/>
-                                            <span className="text-xs uppercase tracking-widest text-emerald-500 font-bold">Answer Logic</span>
-                                        </div>
-                                        <div className="text-sm text-white/60">
-                                            {editMode ? (
-                                                <div className="flex gap-4 items-center">
-                                                    <span>Correct Index:</span>
-                                                    <select 
-                                                        className="bg-[#0f1117] border border-white/10 rounded px-2 py-1"
-                                                        value={q.correctAnswerOption} 
-                                                        onChange={e => {
-                                                            const newQs = [...editedQuiz.questions];
-                                                            newQs[qIdx].correctAnswerOption = e.target.value;
-                                                            newQs[qIdx].correctAnswer = newQs[qIdx].options[e.target.value.charCodeAt(0) - 65];
-                                                            setEditedQuiz({...editedQuiz, questions: newQs});
-                                                        }}
-                                                    >
-                                                        {['A', 'B', 'C', 'D'].map(l => <option key={l} value={l}>{l}</option>)}
-                                                    </select>
-                                                </div>
-                                            ) : (
-                                                <span>Option {q.correctAnswerOption}: {q.correctAnswer}</span>
-                                            )}
-                                        </div>
-                                        <div className="mt-3 pt-3 border-t border-white/5 text-xs text-white/40 italic">
-                                            <strong>EXPLANATION:</strong> {editMode ? (
-                                                <textarea 
-                                                    className="w-full bg-transparent border-none p-0 mt-2 text-white/60 focus:ring-0" 
-                                                    value={q.explanation} 
-                                                    onChange={e => {
-                                                        const newQs = [...editedQuiz.questions];
-                                                        newQs[qIdx].explanation = e.target.value;
-                                                        setEditedQuiz({...editedQuiz, questions: newQs});
-                                                    }}
-                                                />
-                                            ) : q.explanation || 'No explanation provided.'}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="p-8 border-t border-white/5 bg-[#1a1c24]/50 backdrop-blur-md flex justify-between items-center">
-                            <button className="text-red-500/60 hover:text-red-500 text-sm font-medium flex items-center gap-2 transition-all" onClick={() => handleDelete(selectedQuiz._id)}>
-                                <FaTrash /> Delete Quiz Permanently
-                            </button>
-                            <div className="flex gap-4">
-                                {editMode ? (
-                                    <>
-                                        <button className="px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white transition-all font-semibold" onClick={() => setEditMode(false)}>Discard Changes</button>
-                                        <button className="action-btn download-btn px-8" onClick={handleSave}><FaSave /> Commit Changes</button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <button className="px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white transition-all font-semibold" onClick={() => { setEditedQuiz({...selectedQuiz}); setEditMode(true); }}><FaEdit /> Edit Structure</button>
-                                        <button className="action-btn download-btn px-8" onClick={() => navigate(`/educator/live-quiz/${selectedQuiz._id}`)}><FaBroadcastTower /> Launch Live</button>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-6 right-6 z-[9999] px-5 py-3 rounded-xl text-sm font-semibold shadow-2xl transition-all
+          ${toast.type === 'success' ? 'bg-emerald-900/80 text-emerald-300 border border-emerald-700' :
+            toast.type === 'error'   ? 'bg-red-900/80 text-red-300 border border-red-700' :
+            toast.type === 'warning' ? 'bg-yellow-900/80 text-yellow-300 border border-yellow-700' :
+            'bg-violet-900/80 text-violet-300 border border-violet-700'}`}>
+          {toast.message}
         </div>
-    );
+      )}
+
+      {/* Header */}
+      <div className="mb-10 border-b border-violet-900/30 pb-4 flex justify-between items-center">
+        <h2 className="text-3xl font-light tracking-wide text-violet-100">Quiz Library</h2>
+        <button
+          onClick={fetchQuizes}
+          className="text-sm text-violet-400 hover:text-violet-200 flex items-center gap-2 transition-colors"
+        >
+          <i className="fas fa-sync-alt"></i> Refresh
+        </button>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="bg-red-900/20 border border-red-800 text-red-300 p-4 rounded-xl mb-6 text-sm">
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center h-64 text-violet-400 animate-pulse">
+          <i className="fas fa-spinner fa-spin mr-3 text-xl"></i>
+          Loading Library...
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {quizes.length > 0 ? (
+            quizes.map((quiz) => {
+              const st = getStatusStyle(quiz.status);
+              return (
+                <div
+                  key={quiz._id}
+                  onClick={() => handleOpenDetail(quiz)}
+                  className="group relative bg-[#15121F] rounded-xl border border-violet-900/20 p-6 cursor-pointer hover:border-violet-500/50 hover:bg-[#1A1625] transition-all duration-300 shadow-lg shadow-black/40"
+                >
+                  {/* Status badge */}
+                  <div className={`absolute top-4 right-4 text-xs font-bold px-2 py-1 rounded uppercase tracking-wider ${st.bg} ${st.text} border ${st.border}`}>
+                    {quiz.status || 'Draft'}
+                  </div>
+
+                  {/* Quiz Icon */}
+                  <div className="w-10 h-10 rounded-lg bg-violet-900/30 flex items-center justify-center mb-4">
+                    <FaQuestionCircle className="text-violet-400 text-lg" />
+                  </div>
+
+                  <h3 className="text-lg font-medium text-white mb-3 pr-16 line-clamp-2 min-h-[52px]">
+                    {quiz.title}
+                  </h3>
+
+                  <div className="flex flex-col gap-2 text-sm text-gray-500 mb-5">
+                    <div className="flex items-center gap-2">
+                      <FaClock className="text-violet-500" />
+                      {quiz.time ? `${quiz.time} min` : 'N/A'}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <FaCalendarAlt className="text-violet-500" />
+                      {formatDate(quiz.createdAt)}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <i className="fas fa-list text-violet-500"></i>
+                      {quiz.questions?.length || 0} Questions
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={(e) => handleHostLive(e, quiz._id)}
+                    className="w-full flex items-center justify-center gap-2 bg-violet-700 hover:bg-violet-600 text-white py-2.5 rounded-lg font-medium transition-colors shadow-lg shadow-violet-900/20"
+                  >
+                    <FaBroadcastTower /> Host Live
+                  </button>
+                </div>
+              );
+            })
+          ) : (
+            <div className="col-span-full text-center py-20">
+              <div className="text-5xl mb-4">📚</div>
+              <p className="text-gray-400 text-lg">No quizzes found.</p>
+              <p className="text-gray-600 text-sm mt-2">Create your first quiz using the Chat interface.</p>
+              <button
+                onClick={() => navigate('/educator/chat')}
+                className="mt-6 px-6 py-3 bg-violet-700 hover:bg-violet-600 text-white rounded-lg font-medium transition-colors"
+              >
+                Create Quiz
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* DETAIL / EDIT MODAL */}
+      {currentData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#15121F] w-full max-w-4xl max-h-[90vh] rounded-2xl border border-violet-900/30 shadow-2xl flex flex-col overflow-hidden">
+
+            {/* Modal Header */}
+            <div className="flex justify-between items-start p-6 border-b border-violet-900/20 bg-[#1A1625]">
+              <div className="flex-1 pr-4">
+                {editMode ? (
+                  <input
+                    className="text-xl font-semibold text-white bg-transparent border-b border-violet-500 w-full focus:outline-none pb-1"
+                    value={editedQuiz.title}
+                    onChange={(e) => setEditedQuiz(prev => ({ ...prev, title: e.target.value }))}
+                  />
+                ) : (
+                  <h2 className="text-2xl font-semibold text-white">{currentData.title}</h2>
+                )}
+                <p className="text-sm text-gray-400 mt-1 flex items-center gap-3">
+                  <span>{currentData.questions?.length || 0} Questions</span>
+                  <span>•</span>
+                  {editMode ? (
+                    <input
+                      className="bg-transparent border-b border-violet-500 text-gray-400 w-20 focus:outline-none text-sm"
+                      value={editedQuiz.time}
+                      onChange={(e) => setEditedQuiz(prev => ({ ...prev, time: e.target.value }))}
+                      placeholder="20"
+                    />
+                  ) : (
+                    <span>{currentData.time} min</span>
+                  )}
+                  {editMode && (
+                    <>
+                      <span>•</span>
+                      <select
+                        className="bg-[#1A1625] text-gray-400 border border-violet-900/30 rounded px-2 py-0.5 text-sm focus:outline-none"
+                        value={editedQuiz.status || 'draft'}
+                        onChange={(e) => setEditedQuiz(prev => ({ ...prev, status: e.target.value }))}
+                      >
+                        <option value="draft">Draft</option>
+                        <option value="published">Published</option>
+                      </select>
+                    </>
+                  )}
+                </p>
+              </div>
+              <button
+                onClick={() => { setSelectedQuiz(null); setEditMode(false); setEditedQuiz(null); }}
+                className="text-gray-500 hover:text-white transition-colors text-xl flex-shrink-0"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            {/* Scrollable Questions Area */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {currentData.questions && currentData.questions.map((q, index) => (
+                <div key={index} className="bg-[#0D0B14] p-5 rounded-xl border border-violet-900/10">
+                  <div className="flex gap-3 mb-4 items-start">
+                    <span className="text-violet-500 font-bold text-lg flex-shrink-0">Q{index + 1}.</span>
+                    {editMode ? (
+                      <textarea
+                        className="flex-1 bg-[#1A1625] text-gray-200 rounded-lg p-2 border border-violet-900/30 text-base focus:outline-none focus:border-violet-500 resize-none"
+                        value={editedQuiz.questions[index].question}
+                        rows={2}
+                        onChange={(e) => {
+                          const newQs = [...editedQuiz.questions];
+                          newQs[index] = { ...newQs[index], question: e.target.value };
+                          setEditedQuiz(prev => ({ ...prev, questions: newQs }));
+                        }}
+                      />
+                    ) : (
+                      <p className="text-gray-200 text-base leading-relaxed">{q.question}</p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 ml-8">
+                    {(editMode ? editedQuiz.questions[index].options : q.options).map((opt, i) => {
+                      const letter = String.fromCharCode(65 + i);
+                      const isCorrect = (editMode ? editedQuiz.questions[index].correctAnswerOption : q.correctAnswerOption) === letter;
+                      return (
+                        <div
+                          key={i}
+                          className={`px-4 py-3 rounded-lg border text-sm ${isCorrect ? 'bg-emerald-900/20 border-emerald-800 text-emerald-100' : 'bg-[#1E1B2E] border-gray-800 text-gray-400'}`}
+                        >
+                          <span className={`font-semibold mr-2 ${isCorrect ? 'text-emerald-400' : 'text-violet-400'}`}>{letter}.</span>
+                          {editMode ? (
+                            <input
+                              className="bg-transparent text-inherit focus:outline-none w-[calc(100%-2rem)]"
+                              value={editedQuiz.questions[index].options[i]}
+                              onChange={(e) => {
+                                const newQs = [...editedQuiz.questions];
+                                const newOpts = [...newQs[index].options];
+                                newOpts[i] = e.target.value;
+                                newQs[index] = { ...newQs[index], options: newOpts };
+                                setEditedQuiz(prev => ({ ...prev, questions: newQs }));
+                              }}
+                            />
+                          ) : opt}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="ml-8 mt-2 p-3 bg-emerald-900/10 border border-emerald-900/30 rounded-lg flex items-start gap-2">
+                    <FaCheckCircle className="text-emerald-500 mt-1 flex-shrink-0" />
+                    <div>
+                      <span className="text-emerald-500 font-bold text-sm block">Correct Answer:</span>
+                      <span className="text-emerald-100 text-sm">
+                        {q.correctAnswer} (Option {q.correctAnswerOption})
+                      </span>
+                      {q.explanation && (
+                        <p className="text-gray-500 text-xs mt-1 italic border-t border-emerald-900/30 pt-1">
+                          {q.explanation}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Difficulty & Subtopics */}
+                  <div className="ml-8 mt-3 flex gap-3 flex-wrap">
+                    {q.difficulty && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium
+                        ${q.difficulty === 'Easy' ? 'bg-green-900/30 text-green-400' :
+                          q.difficulty === 'Hard' ? 'bg-red-900/30 text-red-400' :
+                          'bg-yellow-900/30 text-yellow-400'}`}>
+                        {q.difficulty}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-5 border-t border-violet-900/20 bg-[#1A1625] flex justify-between items-center gap-3">
+              <div>
+                {!editMode && (
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-900/20 text-red-400 hover:bg-red-900/40 transition-colors disabled:opacity-50"
+                  >
+                    <FaTrash size={13} />
+                    {deleting ? 'Deleting...' : 'Delete'}
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-3">
+                {editMode ? (
+                  <>
+                    <button
+                      onClick={handleCancelEdit}
+                      className="px-5 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="flex items-center gap-2 px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20 transition-colors disabled:opacity-50"
+                    >
+                      <FaSave size={13} />
+                      {saving ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={handleEdit}
+                      className="flex items-center gap-2 px-5 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white transition-colors"
+                    >
+                      <FaEdit size={13} /> Edit
+                    </button>
+                    <button
+                      onClick={(e) => { setSelectedQuiz(null); handleHostLive(e, currentData._id); }}
+                      className="flex items-center gap-2 px-6 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white shadow-lg transition-colors"
+                    >
+                      <FaBroadcastTower size={13} /> Host Live
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default GeneratedQuizzes;
