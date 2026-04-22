@@ -1060,6 +1060,9 @@ body {
     position: relative;
     backdrop-filter: var(--glass-blur);
     transition: var(--transition-smooth);
+    backface-visibility: hidden;
+    transform: translateZ(0);
+    overflow: hidden; /* Added to clip the glow effect */
 }
 
 .stat-item:hover {
@@ -4117,12 +4120,13 @@ html {
 .hero-stats-spaced {
     display: flex;
     gap: 40px;
-    margin-top: 60px !important; /* Increased space above stats */
+    margin-top: 60px !important; 
     padding-top: 35px;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     justify-content: center;
     position: relative;
     z-index: 2;
+    /* Entry animation moved to container or removed if flickering */
 }
 
 /* Keep existing stat-item styles but reduce padding */
@@ -4280,7 +4284,7 @@ html {
 
 /* Add subtle animation to stats */
 .hero-stats-spaced {
-    animation: slide-up 0.8s ease-out 0.3s both;
+    /* Removed flickering animation */
 }
 
 @keyframes slide-up {
