@@ -1,38 +1,53 @@
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
-from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
-# Conditional Google imports moved below
-from langchain_core.prompts import ChatPromptTemplate
-from pydantic import BaseModel, Field
-from typing import List, Optional
-from langchain_core.output_parsers import PydanticOutputParser
-from fastapi import FastAPI, UploadFile, File, Form
-from fastapi.middleware.cors import CORSMiddleware
-from speakerLLM import speakUp
+"""
+MCQ-GPT AI Engine
+=================
+FastAPI server that generates quizzes using Google Gemini API directly.
+Uses google-generativeai SDK for prompt-based generation (no LangChain for this).
+Uses LangChain RAG pipeline for file-based generation.
+"""
+
 import os
 import re
+import json
 import shutil
 import uuid
+from typing import List, Optional
+
+from fastapi import FastAPI, UploadFile, File, Form
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
-# Load the backend .env file so Python gets the exact same API key as Node
-env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src", "backend", ".env")
-load_dotenv(env_path)
+# Load env: try local backend .env first (localhost), then fall back to system env vars (Render/production)
+_local_env = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "src", "backend", ".env"
+)
+if os.path.exists(_local_env):
+    load_dotenv(_local_env, override=True)
+    print(f"Loaded env from: {_local_env}")
+else:
+    load_dotenv(override=True)  # picks up any .env in cwd or system env vars on Render
+    print("No local .env found — using system environment variables (Render/production mode)")
 
-app = FastAPI()
 
-# Update CORS for production
-allowed_origins = os.getenv("ALLOWED_ORIGIN", "http://localhost:3000,http://localhost:5173,http://localhost:5174").split(",")
+# ── App setup ─────────────────────────────────────────────────────────────────
+app = FastAPI(title="MCQ-GPT AI Engine")
+
+allowed_origins = os.getenv(
+    "ALLOWED_ORIGIN",
+    "http://localhost:3000,http://localhost:5173,http://localhost:5174,https://quizzco-backend.onrender.com"
+).split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ─── Pydantic Models ────────────────────────────────────────────────────────────
+# ── Pydantic Models ───────────────────────────────────────────────────────────
 class Reframe(BaseModel):
     reframe_qns: bool = False
     reformed_qns: str = ""
@@ -40,117 +55,151 @@ class Reframe(BaseModel):
     reformed_options: str = ""
 
 class Question(BaseModel):
-    question: str = Field(description="The question text")
-    type: str = Field(description="Question type: scq, mcq, or ve")
-    options: List[str] = Field(description="4 options as ['A) ...', 'B) ...', 'C) ...', 'D) ...']")
-    correctAnswer: str = Field(description="Full text of correct answer")
-    correctAnswerOption: str = Field(description="Letter only: A, B, C, or D")
-    context: str = Field(description="Source excerpt under 100 chars")
-    explanation: str = Field(description="Why this answer is correct")
-    difficulty: float = Field(description="Difficulty from -2.0 to 2.0, decimals allowed")
-    sub_topics: List[str] = Field(description="2-3 relevant subtopics")
+    question: str
+    type: str = "scq"
+    options: List[str]
+    correctAnswer: str
+    correctAnswerOption: str
+    context: str = ""
+    explanation: str = ""
+    difficulty: float = 0.5
+    sub_topics: List[str] = []
     reframe: Reframe = Field(default_factory=Reframe)
 
 class Quiz(BaseModel):
-    title: str = Field(description="Concise title (3-8 words)")
-    questions: List[Question] = Field(description="Array of question objects")
+    title: str
+    questions: List[Question]
 
-parser = PydanticOutputParser(pydantic_object=Quiz)
+class QuizRequest(BaseModel):
+    prompt: str
+    file_path: Optional[str] = None
+    num_questions: int = 5
 
-# ─── LLM & Embeddings (loaded once at startup) ──────────────────────────────────
-# Choose LLM based on environment — checks both GOOGLE_API_KEY and API_KEY
+# ── Google Gemini SDK setup (direct — no LangChain) ──────────────────────────
 google_api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("API_KEY")
 
+gemini_model = None
 if google_api_key:
-    # CLOUD MODE: Use Gemini 1.5 Flash (Perfect for Render/Vercel)
-    print("Initialize Cloud LLM (Gemini)...")
-    from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings, HarmCategory, HarmBlockThreshold
-    
-    # Disable most safety filters to prevent educational content from being blocked
-    safety_settings = {
-        HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-        HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-        HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-    }
+    print(f"Initializing Gemini (key: {google_api_key[:12]}...)")
+    import google.generativeai as genai
+    genai.configure(api_key=google_api_key)
+    gemini_model = genai.GenerativeModel("gemini-2.5-flash")
+    print("Gemini ready.")
+else:
+    print("WARNING: No API key found — prompt-only generation will fail.")
 
-    llm = ChatGoogleGenerativeAI(
+# ── LangChain setup (for file-based RAG only) ─────────────────────────────────
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import Chroma
+from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import PydanticOutputParser
+
+lc_llm = None
+embeddings = None
+
+if google_api_key:
+    from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+    lc_llm = ChatGoogleGenerativeAI(
         model="gemini-2.5-flash",
         google_api_key=google_api_key,
-        temperature=0.2, # Slight increase for better question variety
+        temperature=0.2,
         convert_system_message_to_human=True,
-        safety_settings=safety_settings
     )
-else:
-    # LOCAL MODE: Use Ollama
-    from langchain_ollama import ChatOllama
-    print("Initialize Local LLM (Ollama)...")
-    llm = ChatOllama(
-        model="llama3.2:3b",
-        temperature=0,
-        format="json",
-        num_predict=4096,
-        num_ctx=2048
-    )
-
-if google_api_key:
-    print("Initializing Cloud Embedding model (Google)...")
-    from langchain_google_genai import GoogleGenerativeAIEmbeddings
     embeddings = GoogleGenerativeAIEmbeddings(
         model="models/embedding-001",
         google_api_key=google_api_key
     )
-else:
-    from langchain_community.embeddings import HuggingFaceEmbeddings
-    print("Initializing Local Embedding model (HuggingFace)...")
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    print("LangChain LLM + Embeddings ready.")
 
-print("Embedding model ready.")
+parser = PydanticOutputParser(pydantic_object=Quiz)
 
-# ─── Helpers ─────────────────────────────────────────────────────────────────────
-def format_docs(docs):
-    return "\n\n".join(d.page_content for d in docs)
-
+# ── Helpers ───────────────────────────────────────────────────────────────────
 def extract_question_count(prompt: str, default: int) -> int:
-    """Extract number of questions using regex instead of LLM to save time."""
+    """Extract number of questions from prompt text using regex."""
     try:
         numbers = re.findall(r'\d+', prompt)
         if numbers:
             val = int(numbers[0])
             return val if 1 <= val <= 50 else default
-    except:
+    except Exception:
         pass
     return default
 
+
+def extract_json(text: str) -> dict:
+    """
+    Robustly extract a JSON object from LLM response.
+    Handles:
+      - <thinking>...</thinking> blocks (gemini-2.5-flash)
+      - ```json ... ``` markdown fences
+      - Extra text before/after the JSON object
+    """
+    # 1. Strip thinking blocks
+    text = re.sub(r'<thinking>[\s\S]*?</thinking>', '', text, flags=re.IGNORECASE)
+    # 2. Strip markdown fences
+    text = re.sub(r'```(?:json)?\s*', '', text)
+    text = text.replace('```', '').strip()
+    # 3. Find outermost { ... } using brace matching
+    start = text.find('{')
+    if start == -1:
+        raise ValueError("No JSON object in response")
+    depth, end = 0, -1
+    for i, ch in enumerate(text[start:], start):
+        if ch == '{':
+            depth += 1
+        elif ch == '}':
+            depth -= 1
+            if depth == 0:
+                end = i
+                break
+    if end == -1:
+        raise ValueError("JSON not properly closed")
+    return json.loads(text[start:end + 1])
+
+
+def normalise_questions(raw_questions: list) -> List[Question]:
+    """Convert raw dicts from LLM JSON into validated Question objects."""
+    result = []
+    for q in raw_questions:
+        try:
+            reframe_data = q.get("reframe", {})
+            result.append(Question(
+                question=str(q.get("question", "")).strip(),
+                type=str(q.get("type", "scq")),
+                options=q.get("options", []),
+                correctAnswer=str(q.get("correctAnswer", "")),
+                correctAnswerOption=str(q.get("correctAnswerOption", "A")),
+                context=str(q.get("context", "")),
+                explanation=str(q.get("explanation", "")),
+                difficulty=float(q.get("difficulty", 0.5)),
+                sub_topics=q.get("sub_topics", []),
+                reframe=Reframe(**reframe_data) if isinstance(reframe_data, dict) else Reframe(),
+            ))
+        except Exception as e:
+            print(f"  Skipping malformed question: {e}")
+    return result
+
+
+def format_docs(docs):
+    return "\n\n".join(d.page_content for d in docs)
+
+
+def load_documents(local_file_path: str):
+    ext = local_file_path.lower()
+    if ext.endswith(".pdf"):
+        return PyPDFLoader(file_path=local_file_path).load()
+    elif ext.endswith(".docx"):
+        return Docx2txtLoader(file_path=local_file_path).load()
+    else:
+        return TextLoader(file_path=local_file_path).load()
+
+
+# ── PROMPT TEMPLATE (for LangChain RAG endpoint) ──────────────────────────────
 QUIZ_PROMPT_TEMPLATE = ChatPromptTemplate.from_template("""
-You are a world-class educational assessment expert. Your task is to generate high-quality, pedagogically sound multiple-choice questions for the MCQ-GPT platform.
+You are a world-class educational assessment expert. Generate EXACTLY {num_questions} high-quality MCQs.
+Return ONLY valid JSON — no markdown, no code blocks, no explanation.
 
-Create EXACTLY {num_questions} questions based on the provided content.
-
-### QUALITY GUIDELINES:
-1. **Diverse Difficulty**: Distribute questions across different cognitive levels (Recall, Application, Analysis).
-2. **Clear Distractors**: Ensure the 3 incorrect options (distractors) are plausible but clearly incorrect to an expert.
-3. **Actionable Explanations**: Provide detailed explanations that teach the concept behind the correct answer.
-4. **Unique Context**: For each question, extract a small snippet from the source that supports the answer.
-5. **No Truncation**: Output MUST be complete, valid JSON.
-
-### DATA STRUCTURE:
-- title: A professional, catchy title summarising the source content (3-8 words).
-- questions: Array of EXACTLY {num_questions} objects.
-
-Each question object:
-- question: The actual MCQ question text.
-- type: "scq" (single correct).
-- options: Exactly 4 options starting with "A) ", "B) ", etc.
-- correctAnswer: The full text of the correct answer (excluding the letter prefix).
-- correctAnswerOption: The letter (A, B, C, or D).
-- context: The specific sentence or phrase from the source that contains the answer.
-- explanation: A clear 1-2 sentence explanation.
-- difficulty: A decimal between -2.0 (v. easy) and 2.0 (v. hard). Use 0.0 for average difficulty.
-- sub_topics: 2-3 specific keywords.
-- reframe: {{"reframe_qns": false, "reformed_qns": "", "reframe_options": false, "reformed_options": ""}}
-
-### JSON FORMAT (RETURN ONLY THIS):
 {{
   "title": "...",
   "questions": [
@@ -172,261 +221,175 @@ Each question object:
 SOURCE CONTENT:
 {context}
 
-USER FOCUS (Prioritize this if provided):
+USER FOCUS:
 {user_prompt}
 
 JSON OUTPUT:""")
 
 
-def build_quiz_generator(retriever, user_prompt: str):
-    """Build a LangChain chain that uses the retriever and injects the user prompt."""
-    return (
-        {
-            "context": lambda num_q: format_docs(retriever.invoke(user_prompt or "quiz questions")),
-            "num_questions": lambda num_q: num_q,
-            "user_prompt": lambda num_q: user_prompt or "Generate comprehensive questions",
-        }
-        | QUIZ_PROMPT_TEMPLATE
-        | llm
-        | parser
-    )
+# ── /generate-quiz-from-prompt  (DIRECT GEMINI SDK — no LangChain) ────────────
+@app.post('/generate-quiz-from-prompt')
+async def generateFromPrompt(request: QuizRequest):
+    """Generate quiz questions from a text prompt. Uses Gemini SDK directly."""
+    if not request.prompt:
+        return {"success": False, "error": "prompt is required"}
 
-# ─── Request Schema ───────────────────────────────────────────────────────────────
-class QuizRequest(BaseModel):
-    prompt: str
-    file_path: Optional[str] = None
-    num_questions: int = 5
+    if not gemini_model:
+        return {"success": False, "error": "AI service not configured — API key missing."}
 
-# ─── Generation helpers ───────────────────────────────────────────────────────────
-def load_documents(local_file_path: str):
-    ext = local_file_path.lower()
-    if ext.endswith(".pdf"):
-        return PyPDFLoader(file_path=local_file_path).load()
-    elif ext.endswith(".docx"):
-        return Docx2txtLoader(file_path=local_file_path).load()
-    else:
-        return TextLoader(file_path=local_file_path).load()
+    total_questions = extract_question_count(request.prompt, request.num_questions)
+    print(f"\nPrompt-only generation: {total_questions} Qs | topic: '{request.prompt}'")
 
+    system_prompt = f"""You are an expert quiz generator. Create EXACTLY {total_questions} multiple-choice questions about: {request.prompt}
 
-def run_batch_generation(quiz_generator, total_questions: int) -> tuple[list, str | None]:
-    batch_size = 5
-    all_questions = []
-    title = None
+CRITICAL RULES:
+- Return ONLY a single valid JSON object
+- No markdown, no code fences, no preamble, no explanation
+- Every question must have EXACTLY 4 options starting with A), B), C), D)
 
-    batches = (total_questions + batch_size - 1) // batch_size
-    for batch_num in range(batches):
-        remaining = total_questions - len(all_questions)
-        current_size = min(batch_size, remaining)
-        print(f"Batch {batch_num + 1}/{batches}: Generating {current_size} questions...")
+JSON FORMAT:
+{{
+  "title": "Quiz title here",
+  "questions": [
+    {{
+      "question": "Question text?",
+      "type": "scq",
+      "options": ["A) First option", "B) Second option", "C) Third option", "D) Fourth option"],
+      "correctAnswer": "First option",
+      "correctAnswerOption": "A",
+      "context": "Brief context or source",
+      "explanation": "Why this answer is correct",
+      "difficulty": 0.5,
+      "sub_topics": ["topic1", "topic2"],
+      "reframe": {{"reframe_qns": false, "reformed_qns": "", "reframe_options": false, "reformed_options": ""}}
+    }}
+  ]
+}}"""
 
-        for attempt in range(3):
-            try:
-                batch_quiz = quiz_generator.invoke(current_size)
-                valid_questions = [
-                    q for q in batch_quiz.questions
-                    if all(hasattr(q, field) for field in ['difficulty', 'sub_topics'])
-                ]
-                if len(valid_questions) >= current_size:
-                    all_questions.extend(valid_questions[:current_size])
-                    if not title:
-                        title = batch_quiz.title
-                    print(f"Got {current_size} questions (Total: {len(all_questions)})")
-                    break
-                else:
-                    print(f"Only {len(valid_questions)}/{current_size} complete. Retry {attempt + 1}/3")
-            except Exception as e:
-                print(f"Attempt {attempt + 1} failed: {e}")
+    for attempt in range(3):
+        try:
+            print(f"  Attempt {attempt + 1}/3 — calling Gemini...")
+            response = gemini_model.generate_content(system_prompt)
+            raw = response.text
+            print(f"  Response: {len(raw)} chars")
 
-        if len(all_questions) >= total_questions:
-            break
+            parsed = extract_json(raw)
+            questions = normalise_questions(parsed.get("questions", []))
+            title = parsed.get("title", "Generated Quiz")
 
-    return all_questions, title
+            if questions:
+                quiz = Quiz(title=title, questions=questions[:total_questions])
+                result = quiz.model_dump()
+                print(f"  SUCCESS — {len(result['questions'])} questions generated.")
+                return {"success": True, **result}
+            else:
+                print(f"  No questions parsed from response. Retrying...")
+        except Exception as e:
+            print(f"  Attempt {attempt + 1} failed: {type(e).__name__}: {e}")
+
+    return {"success": False, "error": "Failed to generate any questions after multiple attempts."}
 
 
-# ─── /generate-quiz — file-based RAG ─────────────────────────────────────────────
+# ── /generate-quiz  (FILE-BASED RAG via LangChain) ────────────────────────────
 @app.post('/generate-quiz')
 async def generateChain(request: QuizRequest):
-    prompt = request.prompt
+    """Generate quiz from an uploaded file using RAG pipeline."""
+    if not request.file_path:
+        return {"success": False, "error": "file_path is required. Use /generate-quiz-from-prompt for text-only generation."}
+
+    if not lc_llm or not embeddings:
+        return {"success": False, "error": "AI service not configured — API key missing."}
+
+    # Resolve file path
     file_path = request.file_path
-    num_questions = request.num_questions
-
-    # ── Resolve file path ───────────────────────────────────────────────────────
-    if not file_path:
-        return {"success": False, "error": "file_path is required for this endpoint. Use /generate-quiz-from-prompt for prompt-only generation."}
-
     local_file_path = ""
     if os.path.isabs(file_path) and os.path.exists(file_path):
         local_file_path = file_path
     elif os.path.exists(file_path):
         local_file_path = file_path
     else:
-        possible_paths = [
+        candidates = [
             os.path.abspath(os.path.join(os.getcwd(), "..", "src", "backend", file_path)),
             os.path.abspath(os.path.join(os.getcwd(), "..", "src", "backend", "uploads", os.path.basename(file_path))),
-            os.path.abspath(os.path.join(os.getcwd(), "..", "backend", file_path)),
         ]
-        for p in possible_paths:
+        for p in candidates:
             if os.path.exists(p):
                 local_file_path = p
                 break
-
         if not local_file_path:
-            print(f"ERROR: Could not find file. Attempted paths: {possible_paths}")
-            return {"success": False, "error": f"File not found: {file_path}. Tried: {possible_paths}"}
+            return {"success": False, "error": f"File not found: {file_path}"}
 
-    print(f"Loading file: {local_file_path}")
-
-    # ── Load & index documents ──────────────────────────────────────────────────
+    # Load & index
     try:
         documents = load_documents(local_file_path)
     except Exception as e:
-        return {"success": False, "error": f"Failed to load document: {str(e)}"}
+        return {"success": False, "error": f"Failed to load document: {e}"}
 
-    print(f"Processing {len(documents)} document pages...")
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-    texts = text_splitter.split_documents(documents)
-
-    # Use a unique collection per request to avoid state bleed
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+    texts = splitter.split_documents(documents)
     collection_name = f"quiz_{uuid.uuid4().hex[:8]}"
-    vectorDb = Chroma.from_documents(
-        documents=texts,
-        embedding=embeddings,
-        collection_name=collection_name,
-    )
+
+    vectorDb = Chroma.from_documents(documents=texts, embedding=embeddings, collection_name=collection_name)
     retriever = vectorDb.as_retriever(search_kwargs={"k": 6})
 
-    # ── Detect question count from prompt ───────────────────────────────────────
-    total_questions = extract_question_count(prompt, num_questions)
+    total_questions = extract_question_count(request.prompt, request.num_questions)
+    context_docs = format_docs(retriever.invoke(request.prompt or "quiz questions"))
 
-    if total_questions < 1:
-        total_questions = num_questions
-
-    if total_questions < 1:
-        return {"success": False, "error": "Could not identify a valid number of questions from the prompt."}
-
-    quiz_generator = build_quiz_generator(retriever, prompt)
-    all_questions, title = run_batch_generation(quiz_generator, total_questions)
-
-    if not all_questions:
-        return {"success": False, "error": "Failed to generate any questions after multiple attempts."}
-
-    quiz = Quiz(
-        title=title or "Generated Quiz",
-        questions=all_questions[:total_questions]
+    prompt_text = QUIZ_PROMPT_TEMPLATE.format(
+        num_questions=total_questions,
+        context=context_docs,
+        user_prompt=request.prompt or "Generate comprehensive questions"
     )
-    quiz_json = quiz.model_dump()
-    print(f"Done. {len(quiz_json['questions'])} questions generated.")
 
-    # Clean up in-memory collection
+    all_questions = []
+    title = None
+
+    for attempt in range(3):
+        try:
+            print(f"  RAG attempt {attempt + 1}/3...")
+            result = lc_llm.invoke(prompt_text)
+            raw = result.content if hasattr(result, 'content') else str(result)
+            parsed = extract_json(raw)
+            questions = normalise_questions(parsed.get("questions", []))
+            if not title:
+                title = parsed.get("title", "Generated Quiz")
+            if questions:
+                all_questions = questions
+                break
+        except Exception as e:
+            print(f"  RAG attempt {attempt + 1} failed: {e}")
+
     try:
         vectorDb.delete_collection()
     except Exception:
         pass
 
-    return {"success": True, **quiz_json}
-
-
-# ─── /generate-quiz-from-prompt — prompt-only (no file) ──────────────────────────
-@app.post('/generate-quiz-from-prompt')
-async def generateFromPrompt(request: QuizRequest):
-    """Generate quiz questions using only a text prompt (no document needed)."""
-    prompt = request.prompt
-    num_questions = request.num_questions
-
-    if not prompt:
-        return {"success": False, "error": "prompt is required"}
-
-    # Detect question count from prompt if not explicit
-    total_questions = extract_question_count(prompt, num_questions)
-
-    print(f"Prompt-only generation: {total_questions} questions on topic: '{prompt}'")
-
-    # Use the prompt as the sole context document
-    from langchain_core.documents import Document
-    from langchain_core.prompts import ChatPromptTemplate as CPT
-
-    prompt_only_template = CPT.from_template("""
-You are an expert quiz generator. Create EXACTLY {num_questions} questions about the following topic/instruction.
-
-CRITICAL: Output complete, valid JSON. DO NOT truncate.
-
-Return ONLY valid JSON (no markdown, no code blocks):
-
-{{
-  "title": "...",
-  "time": "",
-  "status": "",
-  "questions": [
-    {{
-      "question": "...",
-      "type": "scq",
-      "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
-      "correctAnswer": "...",
-      "correctAnswerOption": "A",
-      "context": "...",
-      "explanation": "...",
-      "difficulty": 0.5,
-      "sub_topics": ["...", "..."],
-      "reframe": {{"reframe_qns": false, "reformed_qns": "", "reframe_options": false, "reformed_options": ""}}
-    }}
-  ]
-}}
-
-TOPIC / INSTRUCTION: {user_prompt}
-
-JSON OUTPUT:""")
-
-    chain = (
-        {
-            "num_questions": lambda x: x,
-            "user_prompt": lambda x: prompt,
-        }
-        | prompt_only_template
-        | llm
-        | parser
-    )
-
-    batch_size = 5
-    all_questions = []
-    title = None
-    batches = (total_questions + batch_size - 1) // batch_size
-
-    for batch_num in range(batches):
-        remaining = total_questions - len(all_questions)
-        current_size = min(batch_size, remaining)
-        print(f"Batch {batch_num + 1}/{batches}: Generating {current_size} questions...")
-
-        for attempt in range(3):
-            try:
-                batch_quiz = chain.invoke(current_size)
-                valid_questions = [
-                    q for q in batch_quiz.questions
-                    if all(hasattr(q, field) for field in ['difficulty', 'sub_topics'])
-                ]
-                if len(valid_questions) >= current_size:
-                    all_questions.extend(valid_questions[:current_size])
-                    if not title:
-                        title = batch_quiz.title
-                    print(f"Got {current_size} questions (Total: {len(all_questions)})")
-                    break
-                else:
-                    print(f"Only {len(valid_questions)}/{current_size}. Retry {attempt + 1}/3")
-            except Exception as e:
-                print(f"Attempt {attempt + 1} failed: {e}")
-
-        if len(all_questions) >= total_questions:
-            break
-
     if not all_questions:
         return {"success": False, "error": "Failed to generate any questions after multiple attempts."}
 
-    quiz = Quiz(
-        title=title or "Generated Quiz",
-        questions=all_questions[:total_questions]
-    )
-    quiz_json = quiz.model_dump()
-    print(f"Done. {len(quiz_json['questions'])} questions generated.")
-    return {"success": True, **quiz_json}
+    quiz = Quiz(title=title or "Generated Quiz", questions=all_questions[:total_questions])
+    result = quiz.model_dump()
+    print(f"Done. {len(result['questions'])} questions generated from file.")
+    return {"success": True, **result}
+
+
+# ── /upload  (file upload endpoint) ──────────────────────────────────────────
+@app.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """Upload a PDF/DOCX/TXT file for quiz generation."""
+    upload_dir = os.path.join(os.getcwd(), "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+    safe_name = f"{uuid.uuid4().hex}_{file.filename}"
+    dest = os.path.join(upload_dir, safe_name)
+    with open(dest, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    return {"success": True, "file_path": dest, "filename": file.filename}
+
+
+# ── Health check ──────────────────────────────────────────────────────────────
+@app.get("/health")
+async def health():
+    return {"status": "ok", "gemini": gemini_model is not None}
 
 
 if __name__ == "__main__":
