@@ -525,6 +525,7 @@ body {
     opacity: 0.5;
     animation: float 20s ease-in-out infinite;
     mix-blend-mode: screen;
+    will-change: transform;
 }
 
 .orb-1 {
@@ -582,6 +583,7 @@ body {
     opacity: 0.1;
     animation: float 30s ease-in-out infinite;
     mix-blend-mode: screen;
+    will-change: transform;
 }
 
 .shape-1 {
@@ -1063,6 +1065,7 @@ body {
     backface-visibility: hidden;
     transform: translateZ(0);
     overflow: hidden; /* Added to clip the glow effect */
+    will-change: transform, opacity;
 }
 
 .stat-item:hover {
@@ -4499,6 +4502,7 @@ html {
     animation: none !important;
 }
 /* Custom styling for Customize section */
+/* Custom styling for Customize section */
 .custom-heading-size {
     font-size: 2.5rem !important; /* Larger heading */
     margin-bottom: 25px !important;
@@ -4562,54 +4566,22 @@ html {
     display: none !important;
     content: none !important;
 }
-/* ===== REMOVE SCROLLBARS ===== */
 
-/* Remove scrollbar for Webkit browsers (Chrome, Safari, Edge) */
+/* Simplified Scrollbar (Standardized) */
 ::-webkit-scrollbar {
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
+    width: 8px;
 }
 
-/* Remove scrollbar for Firefox */
-* {
-    scrollbar-width: none !important;
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
 }
 
-/* Remove scrollbar for IE/Edge */
-* {
-    -ms-overflow-style: none !important;
+::-webkit-scrollbar-thumb {
+    background: rgba(138, 43, 226, 0.3);
+    border-radius: 10px;
 }
 
-/* Hide scrollbar but allow scrolling */
-html, body {
-    overflow: -moz-scrollbars-none !important;
-    -ms-overflow-style: none !important;
-}
-
-/* Ensure content is still scrollable */
-body {
-    -webkit-overflow-scrolling: touch;
-    overflow-y: scroll;
-}
-
-/* Remove scrollbar from all elements */
-*::-webkit-scrollbar,
-*::-webkit-scrollbar-track,
-*::-webkit-scrollbar-thumb {
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
-    background: transparent !important;
-}
-
-/* Hide scrollbar but keep functionality */
-.hide-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
-}
-
-.hide-scrollbar::-webkit-scrollbar {
-    display: none;  /* Chrome, Safari, Opera */
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(138, 43, 226, 0.5);
 }
 
