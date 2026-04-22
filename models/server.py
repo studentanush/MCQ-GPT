@@ -13,14 +13,11 @@ import os
 import re
 import shutil
 import uuid
-# Try loading the backend .env file locally. In production, env vars are set naturally.
-try:
-    from dotenv import load_dotenv
-    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src", "backend", ".env")
-    load_dotenv(env_path)
-except ImportError:
-    pass
+from dotenv import load_dotenv
 
+# Load the backend .env file so Python gets the exact same API key as Node
+env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src", "backend", ".env")
+load_dotenv(env_path)
 
 app = FastAPI()
 
@@ -434,5 +431,4 @@ JSON OUTPUT:""")
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

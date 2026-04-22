@@ -120,7 +120,7 @@ const AttendQuiz = () => {
   // State variables
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedOption, setSelectedOption] = useState(null);
-  const [timeLeft, setTimeLeft] = useState(null); // Initialize as null to avoid dummy calculations
+  const [timeLeft, setTimeLeft] = useState(1800); // 30 minutes in seconds
   const [questions, setQuestions] = useState([]);
   const [questionStatus, setQuestionStatus] = useState({});
   const [isRecording, setIsRecording] = useState(false);
@@ -154,9 +154,7 @@ const AttendQuiz = () => {
   const submitAnswersToBackend = async (quizId, answers) => {
     try {
       setSubmitting(true);
-      const totalDuration = parseTimeToSeconds(quizData?.time);
-      const remainingTime = timeLeft !== null ? timeLeft : totalDuration;
-      const timeSpent = Math.max(0, totalDuration - remainingTime);
+      const timeSpent = Math.max(0, parseTimeToSeconds(quizData?.time) - timeLeft);
 
       const response = await api.post(
         `/quizzes/storeParticipants`,
@@ -230,7 +228,6 @@ const AttendQuiz = () => {
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
-        if (prev === null) return null;
         if (prev <= 1) {
           clearInterval(timer);
           handleAutoSubmit();
