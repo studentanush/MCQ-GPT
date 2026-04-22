@@ -9,11 +9,29 @@ dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.API_KEY);
 
+const extractJSON = (text) => {
+  try {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) return JSON.parse(jsonMatch[0]);
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error("Invalid JSON format from AI");
+  }
+};
+
 // ============ AI GENERAL CHAT ============
 export const generateChat = async (req, res) => {
   try {
     const { message, context } = req.body;
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      safetySettings: [
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+      ]
+    });
 
     const prompt = `
       You are the official MCQ-GPT AI Assistant. Your mission is to empower educators by helping them create high-quality assessments effortlessly.
@@ -385,7 +403,15 @@ export const generateQuiz = async (req, res) => {
 TEXT TO GENERATE QUESTIONS FROM:
 ${text}`;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      safetySettings: [
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+      ]
+    });
     const response = await model.generateContent(prompt);
 
     // Extract raw text
@@ -394,7 +420,7 @@ ${text}`;
     const cleanedText = rawText.replace(/^```(json)?/m, "").replace(/```$/m, "").trim();
 
     try {
-      const parsedQuiz = JSON.parse(cleanedText);
+      const parsedQuiz = extractJSON(cleanedText);
       res.status(200).json({ success: true, quiz: parsedQuiz });
     } catch (parseError) {
       console.error("JSON Parse Error:", parseError, "\nRaw text:", cleanedText);
@@ -445,14 +471,22 @@ export const agenticMode = async (req, res) => {
       ? `${QUIZ_STRUCTURE_PROMPT(num_questions)}\n\nCONTENT FROM URL (${url}):\n${urlContent}`
       : `${QUIZ_STRUCTURE_PROMPT(num_questions)}\n\nCreate questions about the topic found at this URL: ${url}. Use your knowledge about this topic.`;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      safetySettings: [
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+      ]
+    });
     const response = await model.generateContent(prompt);
 
     let rawText = response.response.text() || "";
     const cleanedText = rawText.replace(/^```(json)?/m, "").replace(/```$/m, "").trim();
 
     try {
-      const parsedQuiz = JSON.parse(cleanedText);
+      const parsedQuiz = extractJSON(cleanedText);
       res.status(200).json({ success: true, quiz: parsedQuiz });
     } catch (parseError) {
       console.error("JSON Parse Error:", parseError, "\nRaw text:", cleanedText);

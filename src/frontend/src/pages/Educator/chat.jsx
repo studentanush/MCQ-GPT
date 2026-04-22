@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Upload, Sparkles, Loader2, Download, Save, RefreshCw, X, FileText, CheckCircle } from 'lucide-react';
+import { Send, Upload, Sparkles, Loader2, Download, Save, RefreshCw, X, FileText, CheckCircle, Info } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -11,54 +11,146 @@ import { toast } from 'react-toastify';
 
 const Chat = () => {
     const [messages, setMessages] = useState([
-        { type: 'assistant', content: "Hello! I'm your AI Quiz Assistant. Upload a document or type a topic, and I'll generate a custom quiz for you in seconds." }
+        { 
+            type: 'assistant', 
+            content: "Hello! I'm your AI Quiz Assistant. Upload a document (PDF, DOCX, TXT) or provide a topic prompt, and I'll generate a professional quiz for you." 
+        }
     ]);
     const [input, setInput] = useState('');
     const [file, setFile] = useState(null);
-    const [loading, setLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [conversationContext, setConversationContext] = useState({ hasFile: false, lastQuizParams: null });
     const [showAgentic, setShowAgentic] = useState(false);
     const [agenticUrl, setAgenticUrl] = useState('');
+    const [agenticNum, setAgenticNum] = useState(10);
 
-    const msgEndRef = useRef(null);
-    const fileRef = useRef(null);
+    const messagesEndRef = useRef(null);
+    const fileInputRef = useRef(null);
     const navigate = useNavigate();
 
-    useEffect(() => { msgEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+    useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-    const handleSend = async () => {
-        if (!input.trim() && !file) return;
-        const userMsg = input.trim() || (file ? `Document: ${file.name}` : "");
-        setMessages(p => [...p, { type: 'user', content: userMsg }]);
-        setInput('');
-        setLoading(true);
+    const FormattedMessage = ({ content }) => (
+        <ReactMarkdown
+            remarkPlugins={[remarkMath]}
+            rehypePlugins={[rehypeKatex]}
+            components={{
+                p: ({ ...props }) => <p className="leading-relaxed mb-2" {...props} />,
+                h1: ({ ...props }) => <h1 className="text-xl font-bold my-2" {...props} />,
+                h2: ({ ...props }) => <h2 className="text-lg font-semibold my-2" {...props} />,
+                strong: ({ ...props }) => <strong className="font-bold text-white" {...props} />,
+            }}
+        >
+            {content}
+        </ReactMarkdown>
+    );
 
+    const callLLM = async (userPrompt, context) => {
+        const prompt = userPrompt.toLowerCase();
+        
+        // 1. Check for text generation patterns "X questions on topic"
+        const textMatch = prompt.match(/(\d+)\s*(questions?|mcqs?|quiz)/i);
+        if (textMatch && !context.hasFile) {
+            return `generate_text:${parseInt(textMatch[1])}:${userPrompt}`;
+        }
+
+        // 2. Check for regeneration
+        if (prompt.includes('regenerate') || prompt.includes('try again')) {
+            if (context.lastQuizParams) return `regenerate:${context.lastQuizParams.numQuestions}`;
+        }
+
+        // 3. Check for file-based generation "give me 10 questions"
+        if (context.hasFile && textMatch) {
+            return `generate:${parseInt(textMatch[1])}`;
+        }
+
+        // 4. Default: Conversational AI
         try {
-            // Check for generation command
-            const prompt = userMsg.toLowerCase();
-            const numMatch = prompt.match(/(\d+)/);
-            const num = numMatch ? parseInt(numMatch[1]) : 10;
+            const response = await api.post("/quizzes/chat", { 
+                message: userPrompt, 
+                context: { hasFile: context.hasFile } 
+            });
+            return response.data.reply;
+        } catch (err) {
+            return `generate_text_prompt:${userPrompt}`;
+        }
+    };
 
+    const generateQuiz = async (numQuestions, isTextPrompt = false, textPrompt = '') => {
+        setIsLoading(true);
+        try {
             let response;
-            if (file) {
-                const fd = new FormData();
-                fd.append('file', file);
-                const up = await api.post('/upload/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-                response = await api.post('/quizzes/generate-from-file', { filePath: up.data.filePath, num_questions: num });
-                setFile(null);
+            if (isTextPrompt) {
+                response = await api.post("/quizzes/generate", {
+                    text: textPrompt,
+                    num_questions: numQuestions
+                });
             } else {
-                response = await api.post('/quizzes/generate-from-prompt', { prompt: userMsg, num_questions: num });
+                const formData = new FormData();
+                formData.append('file', file);
+                const upRes = await api.post('/upload/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+                response = await api.post('/quizzes/generate-from-file', {
+                    filePath: upRes.data.filePath,
+                    num_questions: numQuestions
+                });
             }
 
-            const quiz = response.data.quiz || response.data;
-            setMessages(p => [...p, { 
-                type: 'assistant', 
-                content: `Done! I've generated "${quiz.title}". You can preview the questions below.`,
-                quizData: quiz 
+            const quizData = response.data.quiz || response.data;
+            setConversationContext(prev => ({ ...prev, lastQuizParams: { numQuestions, isTextPrompt, textPrompt } }));
+            
+            setMessages(prev => [...prev, {
+                type: 'success',
+                content: `Created "${quizData.title}" with ${quizData.questions.length} questions.`,
+                quizData
             }]);
+            toast.success("Quiz generated successfully!");
         } catch (err) {
-            setMessages(p => [...p, { type: 'assistant', content: "Sorry, I ran into an issue generating the quiz. Please try again." }]);
+            setMessages(prev => [...prev, { type: 'error', content: `Generation failed: ${err.response?.data?.message || err.message}` }]);
+            toast.error("Failed to generate quiz");
         } finally {
-            setLoading(false);
+            setIsLoading(false);
+        }
+    };
+
+    const handleSend = async () => {
+        if (!input.trim()) return;
+        const userMsg = input.trim();
+        setMessages(p => [...p, { type: 'user', content: userMsg }]);
+        setInput('');
+        setIsLoading(true);
+
+        try {
+            const llmAction = await callLLM(userMsg, conversationContext);
+            
+            if (llmAction.startsWith('generate:')) {
+                const num = parseInt(llmAction.split(':')[1]);
+                await generateQuiz(num, false);
+            } else if (llmAction.startsWith('generate_text:')) {
+                const parts = llmAction.split(':');
+                await generateQuiz(parseInt(parts[1]), true, parts.slice(2).join(':'));
+            } else if (llmAction.startsWith('generate_text_prompt:')) {
+                const prompt = llmAction.substring('generate_text_prompt:'.length);
+                const num = prompt.match(/(\d+)/)?.[0] || 10;
+                await generateQuiz(num, true, prompt);
+            } else if (llmAction.startsWith('regenerate:')) {
+                await generateQuiz(parseInt(llmAction.split(':')[1]), conversationContext.lastQuizParams?.isTextPrompt, conversationContext.lastQuizParams?.textPrompt);
+            } else {
+                setMessages(p => [...p, { type: 'assistant', content: llmAction }]);
+            }
+        } catch (err) {
+            setMessages(p => [...p, { type: 'assistant', content: "I encountered an error. Please try again." }]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleFileSelect = (e) => {
+        const selectedFile = e.target.files[0];
+        if (selectedFile) {
+            setFile(selectedFile);
+            setConversationContext(p => ({ ...p, hasFile: true }));
+            setMessages(p => [...p, { type: 'user', content: `Uploaded: ${selectedFile.name}` }]);
+            setMessages(p => [...p, { type: 'assistant', content: `Received "${selectedFile.name}". How many questions should I generate from it?` }]);
         }
     };
 
@@ -71,12 +163,27 @@ const Chat = () => {
         }
     };
 
+    const handleAgentic = async () => {
+        setIsLoading(true);
+        setShowAgentic(false);
+        setMessages(p => [...p, { type: 'user', content: `Generate ${agenticNum} questions from URL: ${agenticUrl}` }]);
+        try {
+            const res = await api.post("/quizzes/agentic", { url: agenticUrl, num_questions: agenticNum });
+            const quiz = res.data.quiz || res.data;
+            setMessages(p => [...p, { type: 'success', content: `Agentic quiz "${quiz.title}" generated!`, quizData: quiz }]);
+        } catch (err) {
+            toast.error("Agentic generation failed");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <div className="chat-container">
             <header className="chat-header">
                 <div>
                     <h2 style={{fontWeight: 800, fontSize: '1.2rem'}}>AI Quiz Assistant</h2>
-                    <p style={{fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)'}}>Powered by Gemini 2.5 Flash</p>
+                    <p style={{fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)'}}>Intelligent Quiz Generation Engine</p>
                 </div>
                 <div style={{display: 'flex', gap: '10px'}}>
                     <button className="chat-tool-btn" onClick={() => navigate('/educator/generated')}><FileText size={14}/> Library</button>
@@ -87,84 +194,117 @@ const Chat = () => {
             <div className="chat-messages">
                 {messages.map((m, i) => (
                     <div key={i} className={`message-wrapper message-${m.type}`}>
-                        <div className="message-bubble">
-                            <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{m.content}</ReactMarkdown>
-                        </div>
-                        {m.quizData && (
-                            <div className="quiz-preview-message">
-                                <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '20px'}}>
-                                    <h3 style={{fontWeight: 700}}>{m.quizData.title}</h3>
-                                    <span className="status-badge status-published">{m.quizData.questions?.length} Questions</span>
+                        {m.type === 'success' ? (
+                            <div className="quiz-preview-message" style={{width: '100%', maxWidth: '800px'}}>
+                                <div className="flex justify-between items-start mb-6 border-b border-white/10 pb-4">
+                                    <div>
+                                        <h3 className="text-xl font-bold text-white mb-2">{m.quizData.title}</h3>
+                                        <div className="flex gap-4 text-xs text-white/50">
+                                            <span><FaQuestionCircle className="inline mr-1"/> {m.quizData.questions.length} Questions</span>
+                                            <span><FaClock className="inline mr-1"/> {m.quizData.time || 20} mins</span>
+                                        </div>
+                                    </div>
+                                    <button className="action-btn download-btn" onClick={() => handleSaveQuiz(m.quizData)}><Save size={16}/> Save to Library</button>
                                 </div>
-                                <div style={{maxHeight: '300px', overflowY: 'auto', marginBottom: '20px'}}>
-                                    {m.quizData.questions.slice(0, 3).map((q, idx) => (
-                                        <div key={idx} className="preview-question-card">
-                                            <p style={{fontSize: '0.9rem', marginBottom: '10px'}}>{q.question}</p>
-                                            <div style={{fontSize: '0.8rem', opacity: 0.6}}>Correct: {q.correctAnswer}</div>
+                                
+                                <div className="space-y-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                                    {m.quizData.questions.map((q, idx) => (
+                                        <div key={idx} className="preview-question-card" style={{background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)'}}>
+                                            <div className="flex justify-between mb-3">
+                                                <span className="text-xs font-bold text-purple-400">QUESTION {idx + 1}</span>
+                                                <span className="text-[10px] uppercase tracking-wider opacity-40">{q.difficulty || 'Medium'}</span>
+                                            </div>
+                                            <p className="text-white font-medium mb-4">{q.question}</p>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                                                {q.options.map((opt, optIdx) => {
+                                                    const letter = String.fromCharCode(65 + optIdx);
+                                                    const isCorrect = q.correctAnswerOption === letter;
+                                                    return (
+                                                        <div key={optIdx} className={`p-3 rounded-xl text-sm border ${isCorrect ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400' : 'border-white/5 bg-white/2 text-white/60'}`}>
+                                                            <span className="font-bold mr-2">{letter}.</span> {opt}
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                            <div className="p-3 rounded-lg bg-white/3 border border-white/5 text-xs text-white/40">
+                                                <strong className="text-purple-400 block mb-1">Explanation:</strong>
+                                                {q.explanation || 'No explanation provided.'}
+                                            </div>
                                         </div>
                                     ))}
-                                    {m.quizData.questions.length > 3 && (
-                                        <p style={{textAlign: 'center', fontSize: '0.8rem', opacity: 0.4}}>+ {m.quizData.questions.length - 3} more questions</p>
-                                    )}
                                 </div>
-                                <div style={{display: 'flex', gap: '10px'}}>
-                                    <button className="action-btn download-btn" style={{flex: 1}} onClick={() => handleSaveQuiz(m.quizData)}>
-                                        <Save size={16}/> Save to Library
-                                    </button>
-                                    <button className="action-btn" style={{flex: 1}} onClick={() => navigate('/educator/generated')}>
-                                        <FileText size={16}/> View All
-                                    </button>
-                                </div>
+                            </div>
+                        ) : (
+                            <div className="message-bubble">
+                                <FormattedMessage content={m.content} />
                             </div>
                         )}
                     </div>
                 ))}
-                {loading && <div className="message-wrapper message-assistant"><div className="message-bubble"><Loader2 className="animate-spin" /> Analyzing and generating...</div></div>}
-                <div ref={msgEndRef} />
+                {isLoading && (
+                    <div className="message-wrapper message-assistant">
+                        <div className="message-bubble flex items-center gap-3">
+                            <Loader2 className="animate-spin text-purple-400" /> 
+                            <span>Thinking...</span>
+                        </div>
+                    </div>
+                )}
+                <div ref={messagesEndRef} />
             </div>
 
             <div className="chat-input-wrapper">
                 <div className="chat-input-bar">
                     {file && (
-                        <div style={{padding: '8px 16px', background: 'rgba(138,43,226,0.1)', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '10px', width: 'fit-content', marginLeft: '12px'}}>
-                            <FileText size={14}/> <span style={{fontSize: '0.8rem'}}>{file.name}</span>
-                            <X size={14} style={{cursor: 'pointer'}} onClick={() => setFile(null)}/>
+                        <div className="flex items-center gap-2 mb-2 p-2 bg-purple-500/10 border border-purple-500/20 rounded-xl w-fit">
+                            <FileText size={14} className="text-purple-400" />
+                            <span className="text-xs font-medium text-purple-200">{file.name}</span>
+                            <X size={14} className="cursor-pointer text-white/40 hover:text-white" onClick={() => {setFile(null); setConversationContext(p => ({...p, hasFile: false}));}} />
                         </div>
                     )}
                     <div className="input-top">
                         <input 
                             className="input-main" 
-                            placeholder={file ? "How many questions?" : "Type a topic or upload a file..."}
+                            placeholder={file ? `Ask ${file.name}...` : "Upload a file or type a topic..."}
                             value={input}
                             onChange={e => setInput(e.target.value)}
                             onKeyPress={e => e.key === 'Enter' && handleSend()}
                         />
-                        <button className="action-btn download-btn" style={{minWidth: '50px', padding: '10px'}} onClick={handleSend} disabled={loading}>
+                        <button className="action-btn download-btn h-[46px] w-[46px] p-0 flex items-center justify-center" onClick={handleSend} disabled={isLoading}>
                             <Send size={18}/>
                         </button>
                     </div>
-                    <div className="input-actions">
-                        <div style={{display: 'flex', gap: '8px'}}>
-                            <button className="chat-tool-btn" onClick={() => fileRef.current.click()}><Upload size={14}/> {file ? "Change File" : "Upload Document"}</button>
-                            <button className="chat-tool-btn" onClick={() => setShowAgentic(true)}><Sparkles size={14}/> Agentic Mode</button>
+                    <div className="input-actions mt-2 flex justify-between">
+                        <div className="flex gap-2">
+                            <button className="chat-tool-btn" onClick={() => fileInputRef.current.click()}><Upload size={14}/> Attach Doc</button>
+                            <button className="chat-tool-btn" onClick={() => setShowAgentic(true)}><Sparkles size={14}/> Agentic URL</button>
                         </div>
-                        <p style={{fontSize: '0.7rem', color: 'rgba(255,255,255,0.2)'}}>Shift + Enter for new line</p>
+                        <div className="text-[10px] text-white/20 uppercase tracking-widest flex items-center gap-2">
+                            <Info size={10}/> Press Enter to Send
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <input type="file" ref={fileRef} style={{display: 'none'}} onChange={e => setFile(e.target.files[0])} accept=".pdf,.docx,.txt" />
+            <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileSelect} accept=".pdf,.docx,.txt" />
 
             {showAgentic && (
-                <div className="fixed inset-0 z-[2000] flex items-center justify-center quiz-modal-overlay p-6">
-                    <div className="quiz-modal-content w-full max-w-md p-8">
+                <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/60 backdrop-blur-md p-6">
+                    <div className="quiz-modal-content w-full max-w-md p-8 border border-white/10 bg-[#0f1117] rounded-[32px]">
                         <div className="flex justify-between items-center mb-6">
-                            <h2 style={{fontWeight: 800}}>Agentic Generation</h2>
-                            <X style={{cursor: 'pointer'}} onClick={() => setShowAgentic(false)}/>
+                            <h2 className="text-xl font-bold flex items-center gap-2"><Sparkles className="text-purple-400"/> Agentic Mode</h2>
+                            <X className="cursor-pointer opacity-40 hover:opacity-100" onClick={() => setShowAgentic(false)}/>
                         </div>
-                        <p style={{color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem', marginBottom: '20px'}}>Enter a URL to scrape content and generate a quiz.</p>
-                        <input className="search-input" style={{width: '100%', marginBottom: '20px'}} placeholder="https://wikipedia.org/..." value={agenticUrl} onChange={e => setAgenticUrl(e.target.value)} />
-                        <button className="action-btn download-btn" style={{width: '100%'}} onClick={() => { setInput(`Scrape this URL and generate 10 questions: ${agenticUrl}`); setShowAgentic(false); handleSend(); }}>Analyze & Generate</button>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs uppercase tracking-widest text-white/40 mb-2">Target URL</label>
+                                <input className="search-input w-full" placeholder="https://..." value={agenticUrl} onChange={e => setAgenticUrl(e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="block text-xs uppercase tracking-widest text-white/40 mb-2">Number of Questions</label>
+                                <input type="number" className="search-input w-full" value={agenticNum} onChange={e => setAgenticNum(e.target.value)} />
+                            </div>
+                            <button className="action-btn download-btn w-full py-4 mt-4" onClick={handleAgentic}>Generate from URL</button>
+                        </div>
                     </div>
                 </div>
             )}
