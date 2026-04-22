@@ -449,14 +449,40 @@ export const agenticMode = async (req, res) => {
     const response = await model.generateContent(prompt);
 
     let rawText = response.response.text() || "";
-    const cleanedText = rawText.replace(/^```(json)?/m, "").replace(/```$/m, "").trim();
+
+    // Robust JSON extraction (similar to Python logic)
+    // 1. Strip <thinking> blocks
+    let cleanedText = rawText.replace(/<thinking>[\s\S]*?<\/thinking>/gi, "");
+    // 2. Strip markdown fences
+    cleanedText = cleanedText.replace(/^```(?:json)?\s*/gm, "").replace(/\s*```$/gm, "").trim();
 
     try {
-      const parsedQuiz = JSON.parse(cleanedText);
+      // Find the outermost brace
+      const startIdx = cleanedText.indexOf("{");
+      if (startIdx === -1) throw new Error("No JSON object found");
+
+      let depth = 0;
+      let endIdx = -1;
+      for (let i = startIdx; i < cleanedText.length; i++) {
+        if (cleanedText[i] === "{") depth++;
+        else if (cleanedText[i] === "}") {
+          depth--;
+          if (depth === 0) {
+            endIdx = i;
+            break;
+          }
+        }
+      }
+
+      if (endIdx === -1) throw new Error("JSON object not closed properly");
+
+      const finalJsonStr = cleanedText.substring(startIdx, endIdx + 1);
+      const parsedQuiz = JSON.parse(finalJsonStr);
+
       res.status(200).json({ success: true, quiz: parsedQuiz });
     } catch (parseError) {
-      console.error("JSON Parse Error:", parseError, "\nRaw text:", cleanedText);
-      res.status(500).json({ message: "AI returned invalid format", rawResponse: cleanedText });
+      console.error("JSON Parse Error:", parseError, "\nRaw text:", rawText);
+      res.status(500).json({ message: "AI returned invalid format", rawResponse: rawText });
     }
   } catch (err) {
     console.error("Agentic AI Fetch Error:", err);
