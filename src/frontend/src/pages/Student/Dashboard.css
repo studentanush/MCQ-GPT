@@ -89,11 +89,11 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
-  padding: var(--spacing-xs) var(--spacing-md);
-  background: var(--grad-glass);
-  border-radius: var(--border-radius-sm);
-  border: var(--glass-border);
-  transition: var(--transition-smooth);
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
   cursor: pointer;
 }
 
@@ -150,9 +150,10 @@
 }
 
 .welcome-section p {
-  font-size: 1.2rem;
-  color: rgba(255, 255, 255, 0.7);
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.6);
   max-width: 700px;
+  line-height: 1.6;
 }
 
 /* Join Section */
@@ -165,18 +166,17 @@
   max-width: 800px;
   margin: 0 auto;
   background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: var(--glass-blur);
-  border: var(--glass-border);
-  border-radius: var(--border-radius-lg);
-  padding: var(--spacing-xl);
-  box-shadow: var(--shadow-premium);
-  transition: var(--transition-smooth);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  padding: 40px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .join-card.action-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 15px 40px rgba(138, 43, 226, 0.3);
-  border-color: var(--primary-glow);
+  transform: translateY(-8px);
+  border-color: rgba(138, 43, 226, 0.4);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
 }
 
 .join-card .action-icon {
@@ -316,19 +316,19 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-lg);
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: var(--border-radius-md);
-  margin-bottom: var(--spacing-md);
-  transition: var(--transition-smooth);
-  border: var(--glass-border);
+  padding: 20px 25px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 16px;
+  margin-bottom: 12px;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.05);
   cursor: pointer;
 }
 
 .quiz-item:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.06);
   border-color: var(--primary-glow);
-  transform: translateX(10px);
+  transform: translateX(8px);
 }
 
 .quiz-info {
