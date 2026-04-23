@@ -213,6 +213,106 @@ AI generation
 - Add production-ready deployment docs (Docker images, Kubernetes, PM2) and monitoring/analytics.
 ---
 
+---
+
+## 🚀 Getting Started
+
+Follow these instructions to set up and run the project on your local machine.
+
+### Prerequisites
+- **Node.js** (v20+ recommended)
+- **Python** (3.10+ recommended)
+- **MongoDB** (Local or Atlas)
+- **Ollama** (For local Llama 3.2 support)
+
+---
+
+### 1. Backend Setup (`src/backend`)
+
+1. Navigate to the backend directory:
+   ```bash
+   cd src/backend
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Create a `.env` file in the `src/backend` directory and add the following:
+   ```env
+   MONGO_URL=mongodb://localhost:27017/quizco
+   JWT_SECRET=your_jwt_secret_here
+   PORT=5000
+   API_KEY=your_gemini_api_key_here
+   ALLOWED_ORIGIN=http://localhost:5173
+   ```
+4. Start the backend server:
+   ```bash
+   npm run dev
+   ```
+
+---
+
+### 2. Frontend Setup (`src/frontend`)
+
+1. Navigate to the frontend directory:
+   ```bash
+   cd src/frontend
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
+   The frontend will be available at `http://localhost:5173`.
+
+---
+
+### 3. AI Models Setup (`models/`)
+
+This platform uses a hybrid AI approach (Google Gemini + Local Ollama).
+
+1. **Install Ollama**: [Download here](https://ollama.com/)
+2. **Pull the model**:
+   ```bash
+   ollama pull llama3.2
+   ```
+3. **Navigate to the models folder**:
+   ```bash
+   cd models
+   ```
+4. **Install Python dependencies**:
+   ```bash
+   pip install -r dependencies.txt
+   ```
+5. **Start the FastAPI server**:
+   ```bash
+   uvicorn server:app --reload
+   ```
+   The AI service runs on `http://localhost:8000`.
+
+---
+
+## 🛠️ Testing
+
+To run the automated UI and functional tests:
+1. Ensure both frontend and backend are running.
+2. Run the Selenium test suite:
+   ```bash
+   python tests/test_frontend.py
+   ```
+
+---
+
+## 📁 Project Structure Summary
+- **`/src/frontend`**: React + Vite application.
+- **`/src/backend`**: Node.js + Express API.
+- **`/models`**: Python FastAPI service for AI processing.
+
+---
+
 ## Contact & contributors
 - Team: Theta Force
 - Role: Full-stack development, AI integration, and event-driven architecture.
