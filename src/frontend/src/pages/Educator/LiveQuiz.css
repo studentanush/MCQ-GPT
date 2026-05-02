@@ -1060,7 +1060,16 @@
   }
   
   .live-stats {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr; /* Single column on very small screens for readability */
+    gap: 12px;
+  }
+  
+  .stat-card {
+    padding: 12px;
+  }
+
+  .stat-info .value {
+    font-size: 1.5rem;
   }
   
   .settings-grid {
@@ -1073,11 +1082,24 @@
   
   .question-nav {
     flex-direction: column;
+    gap: 15px;
   }
   
   .nav-btn {
     width: 100%;
+    min-width: unset;
   }
+
+  .question-tracker {
+    order: -1; /* Move tracker above buttons on mobile */
+    padding: 10px 0;
+    width: 100%;
+    overflow-x: auto;
+    justify-content: flex-start;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .question-tracker::-webkit-scrollbar { display: none; }
 }
 
 @media (max-width: 480px) {
@@ -1090,13 +1112,24 @@
   }
   
   .student-card {
-    flex-direction: column;
-    text-align: center;
+    flex-direction: row; /* Keep row layout, it's better for avatars */
+    text-align: left;
+    padding: 12px;
+  }
+  
+  .student-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  .student-info h4 {
+    font-size: 1rem;
   }
   
   .student-actions {
     opacity: 1;
-    margin-top: 15px;
+    margin-top: 0;
   }
   
   .preview-stats {
