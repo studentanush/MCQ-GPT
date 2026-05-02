@@ -530,9 +530,8 @@
   cursor: pointer;
   transition: all 0.3s ease;
   font-size: 0.95rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-wrap: break-word;
   min-width: 120px;
   justify-content: center;
 }

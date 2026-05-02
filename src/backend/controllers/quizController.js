@@ -499,39 +499,52 @@ export const generateFromFile = async (req, res) => {
   }
 
   const finalPrompt = userPrompt || `Generate ${num_questions} questions from this file`;
+  console.log(`[Bridge] Starting file generation. File: ${filePath}, Qs: ${num_questions}`);
 
   try {
-    const pythonUrl = (process.env.PYTHON_SERVER_URL || "http://localhost:8000").replace(/\/$/, "");
+    const pythonUrl = (process.env.PYTHON_SERVER_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+    
+    // Using a simpler fetch without AbortSignal for maximum compatibility
+    // Node 18+ fetch will still work fine.
     const pyResponse = await fetch(`${pythonUrl}/generate-quiz`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
       body: JSON.stringify({
         file_path: filePath,
         num_questions: Number(num_questions),
         prompt: finalPrompt,
-      }),
-      signal: AbortSignal.timeout(300000), // 300s — local/free tier LLM needs time
+      })
     });
 
     if (!pyResponse.ok) {
       const errText = await pyResponse.text().catch(() => pyResponse.statusText);
-      throw new Error(`Python service returned ${pyResponse.status}: ${errText}`);
+      console.error(`[Bridge] Python service error status: ${pyResponse.status}`);
+      throw new Error(`AI Engine returned ${pyResponse.status}: ${errText}`);
     }
 
     const data = await pyResponse.json();
 
     if (!data.success) {
-      return res.status(500).json({ success: false, message: data.error || "Python service returned an error" });
+      console.error(`[Bridge] Python logic error: ${data.error}`);
+      return res.status(500).json({ 
+        success: false, 
+        message: data.error || "The AI Engine encountered an error processing your document." 
+      });
     }
 
-    // Python now returns { success, title, questions, ... } — wrap into { quiz }
+    // Python returns { success, title, questions, ... } — wrap into { quiz }
     const { success, ...quizFields } = data;
+    console.log(`[Bridge] Success! Generated ${quizFields.questions?.length} questions.`);
+    
     res.json({ success: true, quiz: quizFields });
   } catch (error) {
-    console.error("File Generation Error (Python Bridge):", error);
+    console.error("[Bridge] Critical Failure:", error);
     res.status(500).json({
       success: false,
-      message: "Error generating quiz from file. Make sure the Python RAG server is running on port 8000.",
+      message: "Could not connect to AI Engine. Make sure the Python RAG server is running.",
       error: error.message,
     });
   }

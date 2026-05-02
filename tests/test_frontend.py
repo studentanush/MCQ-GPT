@@ -87,7 +87,7 @@ class TestFullFlow(unittest.TestCase):
         input("TAKE FIG 5 SCREENSHOT (Generated Quiz), THEN PRESS ENTER TO GO TO LIVE HOSTING...")
 
         # --- STEP 5: LIVE HOSTING ---
-        print("\n--- STEP 5: LIVE HOSTING FLOW ---")
+        print("\n--- STEP 5: LIVE HOSTI--NG FLOW ---")
         self.driver.get(f"{BASE_URL}/educator/dashboard")
         time.sleep(2) # Wait for recent quizzes to load
         

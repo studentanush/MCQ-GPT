@@ -36,12 +36,12 @@ app = FastAPI(title="MCQ-GPT AI Engine")
 
 allowed_origins = os.getenv(
     "ALLOWED_ORIGIN",
-    "http://localhost:3000,http://localhost:5173,http://localhost:5174,https://quizzco-backend.onrender.com"
+    "http://localhost:3000,http://localhost:5173,http://localhost:5174,https://quizzco-backend.onrender.com,https://quizzco-frontend.vercel.app"
 ).split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -107,7 +107,7 @@ if google_api_key:
         convert_system_message_to_human=True,
     )
     embeddings = GoogleGenerativeAIEmbeddings(
-        model="models/embedding-001",
+        model="models/text-embedding-004",
         google_api_key=google_api_key
     )
     print("LangChain LLM + Embeddings ready.")
@@ -290,22 +290,20 @@ JSON FORMAT:
     return {"success": False, "error": "Failed to generate any questions after multiple attempts."}
 
 
-# ── /generate-quiz  (FILE-BASED RAG via LangChain) ────────────────────────────
+# ── /generate-quiz  (RAG with Self-Healing Fallback) ─────────────────────────
 @app.post('/generate-quiz')
 async def generateChain(request: QuizRequest):
-    """Generate quiz from an uploaded file using RAG pipeline."""
+    """Generate quiz using RAG pipeline (LangChain + Chroma). Falls back to full context if RAG fails."""
+    print(f"\n--- RAG Request Received ---")
+    print(f"File: {os.path.basename(request.file_path)}")
+    
     if not request.file_path:
-        return {"success": False, "error": "file_path is required. Use /generate-quiz-from-prompt for text-only generation."}
-
-    if not lc_llm or not embeddings:
-        return {"success": False, "error": "AI service not configured — API key missing."}
+        return {"success": False, "error": "file_path is required."}
 
     # Resolve file path
     file_path = request.file_path
     local_file_path = ""
-    if os.path.isabs(file_path) and os.path.exists(file_path):
-        local_file_path = file_path
-    elif os.path.exists(file_path):
+    if os.path.exists(file_path):
         local_file_path = file_path
     else:
         candidates = [
@@ -316,61 +314,91 @@ async def generateChain(request: QuizRequest):
             if os.path.exists(p):
                 local_file_path = p
                 break
-        if not local_file_path:
-            return {"success": False, "error": f"File not found: {file_path}"}
+        
+    if not local_file_path:
+        return {"success": False, "error": f"File not found on server: {os.path.basename(file_path)}"}
 
-    # Load & index
+    # 1. Load Document
     try:
+        print(f"Loading document: {local_file_path}")
         documents = load_documents(local_file_path)
+        if not documents:
+            return {"success": False, "error": "Document appears to be empty."}
     except Exception as e:
-        return {"success": False, "error": f"Failed to load document: {e}"}
-
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-    texts = splitter.split_documents(documents)
-    collection_name = f"quiz_{uuid.uuid4().hex[:8]}"
-
-    vectorDb = Chroma.from_documents(documents=texts, embedding=embeddings, collection_name=collection_name)
-    retriever = vectorDb.as_retriever(search_kwargs={"k": 6})
+        return {"success": False, "error": f"Failed to parse document: {str(e)}"}
 
     total_questions = extract_question_count(request.prompt, request.num_questions)
-    context_docs = format_docs(retriever.invoke(request.prompt or "quiz questions"))
+    
+    # 2. Try RAG Pipeline
+    rag_success = False
+    context_docs = ""
+    
+    if lc_llm and embeddings:
+        try:
+            print("Attempting RAG pipeline (Chroma)...")
+            splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+            texts = splitter.split_documents(documents)
+            
+            collection_name = f"quiz_{uuid.uuid4().hex[:8]}"
+            vectorDb = Chroma.from_documents(
+                documents=texts, 
+                embedding=embeddings, 
+                collection_name=collection_name
+            )
+            
+            retriever = vectorDb.as_retriever(search_kwargs={"k": 5})
+            context_docs = format_docs(retriever.invoke(request.prompt or "quiz questions"))
+            
+            # Cleanup
+            try:
+                vectorDb.delete_collection()
+            except:
+                pass
+                
+            if context_docs.strip():
+                rag_success = True
+                print("RAG extraction successful.")
+        except Exception as e:
+            print(f"RAG Pipeline failed (falling back): {e}")
+            rag_success = False
 
+    # 3. Fallback to Direct Context if RAG failed or is unavailable
+    if not rag_success:
+        print("Using Direct Context method (Fallback)...")
+        full_text = "\n".join([doc.page_content for doc in documents])
+        context_docs = full_text[:30000] # Use top 30k chars
+
+    # 4. Generate with LLM
+    print(f"Generating {total_questions} questions...")
     prompt_text = QUIZ_PROMPT_TEMPLATE.format(
         num_questions=total_questions,
         context=context_docs,
         user_prompt=request.prompt or "Generate comprehensive questions"
     )
 
-    all_questions = []
-    title = None
-
-    for attempt in range(3):
+    for attempt in range(2):
         try:
-            print(f"  RAG attempt {attempt + 1}/3...")
-            result = lc_llm.invoke(prompt_text)
-            raw = result.content if hasattr(result, 'content') else str(result)
+            print(f"  AI generation attempt {attempt + 1}/2...")
+            # Use LangChain LLM if available, else fallback to direct SDK
+            if lc_llm:
+                result = lc_llm.invoke(prompt_text)
+                raw = result.content if hasattr(result, 'content') else str(result)
+            else:
+                response = gemini_model.generate_content(prompt_text)
+                raw = response.text
+                
             parsed = extract_json(raw)
             questions = normalise_questions(parsed.get("questions", []))
-            if not title:
-                title = parsed.get("title", "Generated Quiz")
+            title = parsed.get("title", "Generated Quiz")
+            
             if questions:
-                all_questions = questions
-                break
+                quiz = Quiz(title=title, questions=questions[:total_questions])
+                print(f"SUCCESS: Generated {len(questions)} questions.")
+                return {"success": True, **quiz.model_dump()}
         except Exception as e:
-            print(f"  RAG attempt {attempt + 1} failed: {e}")
+            print(f"  Attempt {attempt + 1} failed: {e}")
 
-    try:
-        vectorDb.delete_collection()
-    except Exception:
-        pass
-
-    if not all_questions:
-        return {"success": False, "error": "Failed to generate any questions after multiple attempts."}
-
-    quiz = Quiz(title=title or "Generated Quiz", questions=all_questions[:total_questions])
-    result = quiz.model_dump()
-    print(f"Done. {len(result['questions'])} questions generated from file.")
-    return {"success": True, **result}
+    return {"success": False, "error": "AI failed to generate questions after processing the document."}
 
 
 # ── /upload  (file upload endpoint) ──────────────────────────────────────────
@@ -394,4 +422,5 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

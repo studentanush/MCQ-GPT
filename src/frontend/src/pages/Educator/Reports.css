@@ -1005,7 +1005,7 @@ tbody tr:hover {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.action-btn {
+.report-btn {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1019,7 +1019,7 @@ tbody tr:hover {
   transition: all 0.3s ease;
 }
 
-.action-btn:hover {
+.report-btn:hover {
   background: rgba(138, 43, 226, 0.3);
   transform: translateY(-2px);
   color: white;

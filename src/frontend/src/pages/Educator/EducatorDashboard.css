@@ -377,28 +377,28 @@
 
 .action-card {
   background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 24px;
-  padding: 35px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28px;
+  padding: 40px;
+  transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
   cursor: pointer;
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   height: 100%;
-  animation: fade-in-up 0.6s ease-out forwards;
+  animation: fade-in-up 0.8s ease-out forwards;
   opacity: 0;
-  backface-visibility: hidden;
-  transform: translateZ(0);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
 .action-card:hover {
-  transform: translateY(-8px);
-  border-color: rgba(138, 43, 226, 0.4);
-  background: rgba(255, 255, 255, 0.05);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  transform: translateY(-12px);
+  border-color: rgba(138, 43, 226, 0.5);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4), 0 0 20px rgba(138, 43, 226, 0.2);
 }
 
 .action-card::after {
@@ -462,29 +462,42 @@
   font-size: 1.05rem;
 }
 
-.action-btn {
+.dash-action-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 14px 24px;
-  background: var(--grad-premium);
+  gap: 12px;
+  padding: 16px 28px;
+  background: linear-gradient(135deg, #8a2be2 0%, #4361ee 100%);
   border: none;
-  border-radius: 14px;
+  border-radius: 16px;
   color: white;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  font-size: 1rem;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  font-size: 1.1rem;
   letter-spacing: 0.5px;
   width: 100%;
   margin-top: auto;
-  white-space: nowrap;
+  white-space: nowrap !important;
+  box-shadow: 0 4px 15px rgba(138, 43, 226, 0.3);
+  position: relative;
+  z-index: 1;
 }
 
-.action-btn:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 25px rgba(138, 43, 226, 0.4);
+.dash-action-btn:hover {
+  transform: translateY(-5px) scale(1.02);
+  box-shadow: 0 15px 30px rgba(138, 43, 226, 0.5);
+  background: linear-gradient(135deg, #9d4edd, #f72585);
+}
+
+.dash-action-btn i {
+  transition: transform 0.3s ease;
+  font-size: 1rem;
+}
+
+.dash-action-btn:hover i {
+  transform: translateX(6px);
 }
 
 /* Quiz Table Section */
@@ -793,7 +806,8 @@
     flex-direction: column;
     gap: var(--spacing-xs);
     height: auto;
-    position: relative;
+    position: sticky;
+    top: 0;
   }
   
   .header-left {

@@ -648,15 +648,15 @@ const Reports = () => {
                     ))}
                   </div>
                   <div className="insights-actions">
-                    <button className="action-btn">
+                    <button className="report-btn">
                       <i className="fas fa-plus-circle"></i>
                       Create Follow-up Quiz
                     </button>
-                    <button className="action-btn">
+                    <button className="report-btn">
                       <i className="fas fa-envelope"></i>
                       Send to Students
                     </button>
-                    <button className="action-btn">
+                    <button className="report-btn">
                       <i className="fas fa-calendar-alt"></i>
                       Schedule Review Session
                     </button>

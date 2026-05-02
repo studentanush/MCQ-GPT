@@ -4529,6 +4529,7 @@ html {
 .navbar .btn-gradient {
     padding: 10px 22px !important; /* Reduced from 14px 28px */
     font-size: 0.9rem !important;
+    white-space: nowrap !important;
 }
 
 /* Remove any underline from both */
@@ -4583,5 +4584,86 @@ html {
 
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(138, 43, 226, 0.5);
+}
+
+/* ===== RESPONSIVE REFINEMENTS ===== */
+@media (max-width: 1024px) {
+    .role-cards-horizontal {
+        grid-template-columns: 1fr;
+        max-width: 500px;
+        gap: 30px;
+        margin: 0 auto;
+    }
+    .hero-title {
+        font-size: 3rem;
+    }
+    .hero-stats-spaced {
+        flex-direction: column;
+        gap: 20px;
+    }
+    .nav-links {
+        display: none;
+    }
+    .menu-toggle {
+        display: flex;
+    }
+    .features-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .hero-title {
+        font-size: 2.5rem;
+    }
+    .hero-subtitle {
+        font-size: 1.1rem;
+    }
+    .navbar {
+        padding: 15px 0;
+    }
+    .flip-card {
+        height: 520px;
+    }
+    .hero {
+        padding-top: 100px;
+    }
+    .custom-heading-size {
+        font-size: 2rem !important;
+    }
+    .custom-text-width {
+        font-size: 1rem !important;
+    }
+    .features-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .steps-container {
+        flex-direction: column;
+    }
+    .footer-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero-title {
+        font-size: 2rem;
+    }
+    .hero-subtitle {
+        font-size: 1rem;
+    }
+    .badge-animated {
+        font-size: 0.8rem;
+        padding: 10px 20px;
+    }
+    .flip-card {
+        height: 560px;
+    }
+    .nav-brand .brand-name {
+        font-size: 1.5rem;
+    }
+    .nav-brand .brand-tld {
+        font-size: 1.5rem;
+    }
 }
 

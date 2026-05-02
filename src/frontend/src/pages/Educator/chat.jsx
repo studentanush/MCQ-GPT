@@ -105,10 +105,13 @@ function Chat() {
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'text/plain'
       ];
-
-      if (validTypes.includes(selectedFile.type)) {
+      const validExts = ['.pdf', '.docx', '.txt'];
+      const fileExt = selectedFile.name.substring(selectedFile.name.lastIndexOf('.')).toLowerCase();
+      
+      if (validTypes.includes(selectedFile.type) || validExts.includes(fileExt)) {
         setFile(selectedFile);
         setConversationContext(prev => ({ ...prev, hasFile: true }));
+        
         setMessages(prev => [...prev, {
           type: 'user',
           content: `Uploaded: ${selectedFile.name}`
@@ -116,12 +119,10 @@ function Chat() {
 
         setTimeout(() => {
           addAssistantMessage(`Great! I've received "${selectedFile.name}". How many questions would you like me to generate from this document?`);
-        }, 500);
+        }, 600);
       } else {
-        setMessages(prev => [...prev, {
-          type: 'error',
-          content: 'Please upload a PDF, DOCX, or TXT file.',
-        }]  );
+        addAssistantMessage(`Sorry, "${selectedFile.name}" is not a supported format. Please upload a PDF, DOCX, or TXT file.`);
+        e.target.value = null; // Clear the input
       }
     }
   };
@@ -158,7 +159,7 @@ function Chat() {
         }]);
       } catch (error) {
         // axios wraps server error details in error.response.data
-        const serverMsg = error.response?.data?.message;
+        const serverMsg = error.response?.data?.message || error.response?.data?.error;
         setMessages(prev => [...prev, {
           type: "error",
           content: `Failed to generate quiz: ${serverMsg || error.message}`
@@ -186,13 +187,24 @@ function Chat() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const uploadRes = await api.post('/upload/upload', formData, {
-        headers: { 
-          'Content-Type': 'multipart/form-data',
-        }
+      // Using native fetch for the upload to bypass any Axios interceptor/header issues
+      const token = JSON.parse(sessionStorage.getItem('edu_info'))?.token || JSON.parse(sessionStorage.getItem('stu_info'))?.token;
+      
+      const uploadRes = await fetch(`${import.meta.env.VITE_API_URL}/upload/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': token || '',
+        },
+        body: formData
       });
 
-      const filePath = uploadRes.data.filePath;
+      if (!uploadRes.ok) {
+        const errorData = await uploadRes.json().catch(() => ({}));
+        throw new Error(errorData.message || 'File upload failed');
+      }
+
+      const uploadData = await uploadRes.json();
+      const filePath = uploadData.filePath;
 
       const response = await api.post('/quizzes/generate-from-file', {
         filePath,
@@ -214,9 +226,11 @@ function Chat() {
         quizData
       }]);
     } catch (error) {
+      console.error("Generation error:", error);
+      const serverMsg = error.response?.data?.message || error.response?.data?.error;
       setMessages(prev => [...prev, {
         type: 'error',
-        content: `Failed to generate quiz: ${error.message}`,
+        content: `Failed to generate quiz: ${serverMsg || error.message}`,
       }]);
     } finally {
       setIsLoading(false);
@@ -458,7 +472,7 @@ function Chat() {
 
                       {/* Questions List */}
                       <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-                        {msg.quizData.questions.map((q, idx) => (
+                        {msg.quizData?.questions?.map((q, idx) => (
                           <div key={idx} className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
                             {/* Question Header */}
                             <div className="flex items-start justify-between mb-2">
@@ -525,7 +539,7 @@ function Chat() {
                     </div>
 
                     {/* Action Buttons at Bottom - Aligned Left */}
-                    <div className="border-t border-green-200 pt-4 flex gap-2">
+                    <div className="border-t border-green-200 pt-4 flex flex-wrap gap-2">
                       <button
                         onClick={() => handleSaveQuiz(msg.quizData)}
                         className="px-4 py-2 bg-[#8F00FF] text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-sm flex items-center gap-2"

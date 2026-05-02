@@ -234,7 +234,7 @@ const EducatorDashboard = () => {
                 <h3>{action.title}</h3>
                 <p>{action.description}</p>
                 <button 
-                  className="action-btn"
+                  className="dash-action-btn"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleNavigation(action.link);
