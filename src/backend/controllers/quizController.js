@@ -491,6 +491,9 @@ export const agenticMode = async (req, res) => {
 };
 
 // ============ GENERATE FROM FILE (Bridge to Python RAG server) ============
+import fs from "fs";
+import path from "path";
+
 export const generateFromFile = async (req, res) => {
   const { filePath, num_questions = 5, prompt: userPrompt } = req.body;
 
@@ -499,13 +502,37 @@ export const generateFromFile = async (req, res) => {
   }
 
   const finalPrompt = userPrompt || `Generate ${num_questions} questions from this file`;
-  console.log(`[Bridge] Starting file generation. File: ${filePath}, Qs: ${num_questions}`);
+  console.log(`[Bridge] Starting file generation. File: ${filePath}`);
 
   try {
     const pythonUrl = (process.env.PYTHON_SERVER_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
     
-    // Using a simpler fetch without AbortSignal for maximum compatibility
-    // Node 18+ fetch will still work fine.
+    // --- STEP 1: Forward the file to Python's own filesystem ---
+    // This is required because on platforms like Render, Node and Python run on separate machines.
+    console.log("[Bridge] Forwarding file to Python service...");
+    
+    const fileBuffer = fs.readFileSync(filePath);
+    const fileName = path.basename(filePath);
+    
+    // Create FormData for Node 18+ fetch
+    const formData = new FormData();
+    const blob = new Blob([fileBuffer]);
+    formData.append('file', blob, fileName);
+
+    const uploadResponse = await fetch(`${pythonUrl}/upload`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error(`Python upload failed: ${uploadResponse.statusText}`);
+    }
+
+    const uploadData = await uploadResponse.json();
+    const pythonLocalPath = uploadData.file_path; // The path on Python's machine
+    console.log(`[Bridge] File forwarded. Python path: ${pythonLocalPath}`);
+
+    // --- STEP 2: Request quiz generation using Python's local path ---
     const pyResponse = await fetch(`${pythonUrl}/generate-quiz`, {
       method: "POST",
       headers: { 
@@ -513,7 +540,7 @@ export const generateFromFile = async (req, res) => {
         "Accept": "application/json"
       },
       body: JSON.stringify({
-        file_path: filePath,
+        file_path: pythonLocalPath,
         num_questions: Number(num_questions),
         prompt: finalPrompt,
       })
@@ -539,6 +566,9 @@ export const generateFromFile = async (req, res) => {
     const { success, ...quizFields } = data;
     console.log(`[Bridge] Success! Generated ${quizFields.questions?.length} questions.`);
     
+    // Clean up local Node file after forwarding (optional but recommended)
+    try { fs.unlinkSync(filePath); } catch(e) {}
+
     res.json({ success: true, quiz: quizFields });
   } catch (error) {
     console.error("[Bridge] Critical Failure:", error);
