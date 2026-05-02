@@ -137,32 +137,31 @@ models/
 
 ## 🔄 System Architecture
 
-### AI Quiz Generation Flow (Document-Based)
+### AI Quiz Generation Flow
 ```mermaid
 sequenceDiagram
-    participant User as 👤 Educator
-    participant FE as 🖥️ Frontend (Vite)
-    participant BE as 🚀 Node.js Backend
-    participant AI as 🧠 Python AI Engine
-    participant DB as 📁 MongoDB
+    participant User as Educator
+    participant FE as Frontend (React)
+    participant BE as Node Backend
+    participant AI as AI Service (Python)
+    participant DB as Database (MongoDB)
 
-    User->>FE: Upload File (.pdf, .docx, .txt)
-    FE->>BE: POST /api/upload/upload (FormData)
-    BE->>BE: Save file to local /uploads
+    User->>FE: Upload Document
+    FE->>BE: POST /api/upload/upload
+    BE->>BE: Save locally
     
-    Note over BE, AI: Cross-Service Forwarding (Deployment Ready)
-    BE->>AI: POST /upload (Forward Multipart File)
-    AI->>AI: Save to AI Engine local storage
-    AI-->>BE: Return Python-local path
+    Note over BE, AI: File Forwarding (Production)
+    BE->>AI: POST /upload (FormData)
+    AI->>AI: Save to AI storage
+    AI-->>BE: Return Python path
 
-    BE->>AI: POST /generate-quiz (with Path & Prompt)
-    AI->>AI: Text Extraction / RAG Pipeline
-    AI->>AI: Call Gemini Pro/Flash API
+    BE->>AI: POST /generate-quiz (with Path)
+    AI->>AI: Extract Text & Generate
     AI-->>BE: Return Quiz JSON
 
-    BE->>DB: Save Quiz to Database
+    BE->>DB: Save Quiz
     BE-->>FE: Return Quiz Data
-    FE-->>User: Display Generated Quiz & UI
+    FE-->>User: Display Quiz UI
 ```
 
 ### Data Flow
