@@ -30,13 +30,23 @@ env/
 .ipynb_checkpoints/
 
 # User Uploads (DO NOT PUSH SENSITIVE DOCUMENTS)
-src/backend/uploads/
+src/backend/uploads/*
+models/uploads/*
+!src/backend/uploads/.gitkeep
+!models/uploads/.gitkeep
+
+# ChromaDB Vector Store (auto-generated, do not commit)
+models/chroma_db/
 
 # IDE files
 .vscode/
 .idea/
 .DS_Store
+Thumbs.db
 *.swp
+
+# Test artifacts (auto-generated screenshots)
+test_reports/*.png
 
 # Antigravity / Agentic Artifacts
 .gemini/

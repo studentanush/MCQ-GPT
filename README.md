@@ -97,41 +97,45 @@ This platform solves these gaps by:
 ---
 
 
-## 📁 Project Backend Structure
+## 📁 Project Structure
 ```
-backend/
-├── controllers/
-├── routes/
-├── sockets/
-│ ├── adminSocket.js
-│ └── playerSocket.js
-├── middleware/
-├── models/
-├── server.js
-└── config/
-```
-
-
-## 📁 Project Frontend Structure 
-```
-frontend/
+Techfest_IIB/
 ├── src/
-│ ├── components/
-│ ├── pages/
-│ ├── hooks/
-│ ├── utils/
-│ └── App.jsx
-└── index.html
-```
-## 📁 Project Models Structure
-```
-models/
-├── chroma_db/            # Local Chroma vector database files
-├── uploads/              # Uploaded PDF/text/docx files for processing
-├── dependencies.txt      # Python dependencies (like requirements.txt)
-├── server.py             # FastAPI / backend server for model operations
-├── speakerLLM.py         # LLM-driven speaker/extraction/embedding logic
-└── README.md             # Setup instructions for the models module
+│   ├── backend/           # Node.js + Express API
+│   │   ├── config/        # Database connection
+│   │   ├── controllers/   # Route logic (quiz, auth, upload)
+│   │   ├── middleware/    # Auth & upload middleware
+│   │   ├── models/        # Mongoose schemas
+│   │   ├── routes/        # Express route definitions
+│   │   ├── sockets/       # Socket.IO event handlers
+│   │   ├── uploads/       # Temporary uploaded files
+│   │   ├── stress_test.js # Load testing script
+│   │   └── server.js      # Entry point
+│   │
+│   └── frontend/          # React (Vite) Application
+│       └── src/
+│           ├── components/ # Shared UI components
+│           ├── pages/      # Route-level page components
+│           ├── hooks/      # Custom React hooks
+│           ├── services/   # Axios API service
+│           └── App.jsx     # Root component & routing
+│
+├── models/                # Python FastAPI AI Engine
+│   ├── server.py          # FastAPI server (RAG + Gemini)
+│   ├── uploads/           # Temp AI processing files
+│   └── dependencies.txt   # Python requirements
+│
+├── tests/                 # All test scripts
+│   ├── test_frontend.py   # Selenium UI tests
+│   ├── test_api.py        # API integration tests
+│   ├── selenium_test.py   # Full E2E Selenium suite
+│   ├── test_gemini.py     # Gemini API unit tests
+│   └── debug_gen.py       # Generation debug helper
+│
+├── docs/                  # Architecture diagrams & assets
+├── test_reports/          # Generated test screenshots
+├── deployment_guide.md    # Deployment instructions
+└── README.md
 ```
 ---
 
