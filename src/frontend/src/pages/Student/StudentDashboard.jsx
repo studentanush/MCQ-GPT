@@ -348,7 +348,7 @@ const StudentDashboard = () => {
           <div className="quiz-table">
             <div className="quiz-table-header">
               <h3><i className="fas fa-history"></i> Your Recent Attempts</h3>
-              <button className="view-all-btn">
+              <button className="view-all-btn" onClick={() => navigate('/student/reports')}>
                 <span>View All Reports</span>
                 <i className="fas fa-arrow-right"></i>
               </button>

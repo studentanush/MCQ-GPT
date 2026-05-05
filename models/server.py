@@ -107,7 +107,7 @@ if google_api_key:
         convert_system_message_to_human=True,
     )
     embeddings = GoogleGenerativeAIEmbeddings(
-        model="models/text-embedding-004",
+        model="models/gemini-embedding-001",
         google_api_key=google_api_key
     )
     print("LangChain LLM + Embeddings ready.")
