@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../../services/api';
 import './StudentReport.css';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 const StudentReport = () => {
   const { submissionId } = useParams();
@@ -18,6 +18,7 @@ const StudentReport = () => {
   const [selectedQuestion, setSelectedQuestion] = useState(0);
   const [downloadingPDF, setDownloadingPDF] = useState(false);
   const [downloadingSolutions, setDownloadingSolutions] = useState(false);
+  const [questionFilter, setQuestionFilter] = useState('all');
 
 
 
@@ -98,7 +99,7 @@ const StudentReport = () => {
         ['Time Taken', reportData.timeTaken]
       ];
       
-      doc.autoTable({
+      autoTable(doc, {
         startY: 95,
         head: [['Metric', 'Value']],
         body: summaryData,
@@ -110,6 +111,7 @@ const StudentReport = () => {
       // Topic-wise Performance
       const topicTableY = doc.lastAutoTable.finalY + 15;
       doc.setFontSize(14);
+      doc.setTextColor(138, 43, 226);
       doc.text('Topic-wise Performance', 20, topicTableY);
       
       const topicData = reportData.topics.map(topic => [
@@ -119,13 +121,80 @@ const StudentReport = () => {
         `${topic.percentage}%`
       ]);
       
-      doc.autoTable({
+      autoTable(doc, {
         startY: topicTableY + 5,
         head: [['Topic', 'Correct', 'Total', 'Percentage']],
         body: topicData,
         theme: 'striped',
         headStyles: { fillColor: [76, 201, 240] }
       });
+
+      // Detailed Question Analysis - NEW SECTION
+      let currentY = doc.lastAutoTable.finalY + 20;
+      
+      // Check if we need a new page for the analysis section
+      if (currentY > 250) {
+        doc.addPage();
+        currentY = 20;
+      }
+
+      doc.setFontSize(16);
+      doc.setTextColor(255, 107, 107);
+      doc.text('Detailed Review of Missed Questions', 20, currentY);
+      currentY += 10;
+
+      const missedQuestions = reportData.questions.filter(q => !q.isCorrect);
+
+      if (missedQuestions.length > 0) {
+        missedQuestions.forEach((q, index) => {
+          // Check for space
+          if (currentY > 240) {
+            doc.addPage();
+            currentY = 20;
+          }
+
+          doc.setFontSize(12);
+          doc.setTextColor(0, 0, 0);
+          doc.setFont(undefined, 'bold');
+          doc.text(`Q${q.id}: ${q.topic}`, 20, currentY);
+          currentY += 7;
+
+          doc.setFont(undefined, 'normal');
+          const questionLines = doc.splitTextToSize(q.question, pageWidth - 40);
+          doc.text(questionLines, 20, currentY);
+          currentY += (questionLines.length * 6) + 2;
+
+          // Answers comparison
+          doc.setFontSize(10);
+          if (q.studentAnswer) {
+            doc.setTextColor(255, 107, 107);
+            doc.text(`Your Answer: ${q.studentAnswer}`, 25, currentY);
+            currentY += 6;
+          } else {
+            doc.setTextColor(255, 165, 2);
+            doc.text(`Your Answer: [Skipped]`, 25, currentY);
+            currentY += 6;
+          }
+
+          doc.setTextColor(0, 255, 136);
+          doc.text(`Correct Answer: ${q.correctAnswer}`, 25, currentY);
+          currentY += 8;
+
+          // Solution/Explanation
+          doc.setTextColor(80, 80, 80);
+          doc.setFont(undefined, 'italic');
+          const solutionText = `Explanation: ${q.solution || q.explanation || 'No detailed explanation available.'}`;
+          const solutionLines = doc.splitTextToSize(solutionText, pageWidth - 50);
+          doc.text(solutionLines, 25, currentY);
+          currentY += (solutionLines.length * 5) + 10;
+          
+          doc.setFont(undefined, 'normal');
+        });
+      } else {
+        doc.setFontSize(12);
+        doc.setTextColor(0, 200, 0);
+        doc.text('Congratulations! You answered all questions correctly.', 20, currentY);
+      }
       
       // Add page number
       const pageCount = doc.internal.getNumberOfPages();
@@ -256,11 +325,13 @@ const StudentReport = () => {
   // ==================== RENDER ====================
   if (loading) {
     return (
-      <div className="report-loading">
-        <div className="loading-content">
-          <div className="loading-spinner"></div>
-          <h2>Generating Your Report...</h2>
-          <p>Analyzing your performance</p>
+      <div className="student-report-container">
+        <div className="report-loading">
+          <div className="loading-content">
+            <div className="loading-spinner"></div>
+            <h2>Generating Your Report...</h2>
+            <p>Analyzing your performance</p>
+          </div>
         </div>
       </div>
     );
@@ -268,17 +339,19 @@ const StudentReport = () => {
 
   if (error || !reportData) {
     return (
-      <div className="report-error">
-        <div className="error-content">
-          <div className="error-icon">❌</div>
-          <h2>Error Loading Report</h2>
-          <p>{error || 'Report data not available'}</p>
-          <button 
-            className="dashboard-btn"
-            onClick={() => navigate('/student/dashboard')}
-          >
-            <i className="fas fa-home"></i> Back to Dashboard
-          </button>
+      <div className="student-report-container">
+        <div className="report-error">
+          <div className="error-content">
+            <div className="error-icon">❌</div>
+            <h2>Error Loading Report</h2>
+            <p>{error || 'Report data not available'}</p>
+            <button 
+              className="dashboard-btn"
+              onClick={() => navigate('/student/dashboard')}
+            >
+              <i className="fas fa-home"></i> Back to Dashboard
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -315,14 +388,6 @@ const StudentReport = () => {
           >
             <i className="fas fa-file-pdf"></i> 
             {downloadingPDF ? 'Generating...' : 'Download Report'}
-          </button>
-          <button 
-            className="action-btn solutions-btn"
-            onClick={downloadSolutionsPDF}
-            disabled={downloadingSolutions}
-          >
-            <i className="fas fa-download"></i> 
-            {downloadingSolutions ? 'Downloading...' : 'Solutions'}
           </button>
         </div>
       </header>
@@ -488,6 +553,79 @@ const StudentReport = () => {
                   </div>
                 </div>
 
+                {/* Critical Error Analysis - NEW SECTION */}
+                <div className="report-section-header mt-8 mb-4">
+                  <h3><i className="fas fa-exclamation-triangle"></i> Questions to Review</h3>
+                  <p>Detailed analysis of questions you missed or skipped</p>
+                </div>
+
+                <div className="error-analysis-list">
+                  {reportData.questions.filter(q => !q.isCorrect).length > 0 ? (
+                    reportData.questions
+                      .filter(q => !q.isCorrect)
+                      .map((q, idx) => (
+                        <div key={q.id} className="error-analysis-card">
+                          <div className="error-card-header">
+                            <span className="error-q-number">Q{q.id}</span>
+                            <span className="error-q-topic">{q.topic}</span>
+                            <span className={`error-q-status ${q.studentAnswer ? 'wrong' : 'skipped'}`}>
+                              {q.studentAnswer ? 'Incorrect' : 'Skipped'}
+                            </span>
+                          </div>
+                          <div className="error-q-text">{q.question}</div>
+                          <div className="error-answers-comparison">
+                            {q.studentAnswer && (
+                              <div className="answer-box student">
+                                <span className="label">Your Answer:</span>
+                                <span className="value">{q.studentAnswer}</span>
+                              </div>
+                            )}
+                            <div className="answer-box correct">
+                              <span className="label">Correct Answer:</span>
+                              <span className="value">{q.correctAnswer}</span>
+                            </div>
+                          </div>
+                          {q.solution && (
+                            <div className="error-solution-box">
+                              <i className="fas fa-lightbulb"></i>
+                              <div>
+                                <strong>Explanation:</strong> {q.solution}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                  ) : (
+                    <div className="perfect-score-message">
+                      <i className="fas fa-trophy"></i>
+                      <h4>Perfect Performance!</h4>
+                      <p>You didn't miss any questions. Keep up the excellent work!</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Key Insights & Recommendations */}
+                <div className="insights-grid mt-8">
+                  <div className="insight-card positive">
+                    <h4><i className="fas fa-star"></i> Key Strengths</h4>
+                    <ul>
+                      {reportData.topics
+                        .filter(t => t.percentage >= 80)
+                        .map(t => <li key={t.name}>{t.name} ({t.percentage}%)</li>)}
+                      {reportData.topics.filter(t => t.percentage >= 80).length === 0 && <li>Consistency across topics</li>}
+                    </ul>
+                  </div>
+                  <div className="insight-card warning">
+                    <h4><i className="fas fa-bullseye"></i> Areas for Focus</h4>
+                    <ul>
+                      {reportData.topics
+                        .filter(t => t.percentage < 60)
+                        .map(t => <li key={t.name}>{t.name} ({t.percentage}%)</li>)}
+                      {reportData.topics.filter(t => t.percentage < 60).length === 0 && <li>Time management and accuracy</li>}
+                    </ul>
+                  </div>
+                </div>
+
                 {/* Question Type Performance */}
                 <div className="type-performance">
                   <h3><i className="fas fa-poll"></i> Question Type Analysis</h3>
@@ -522,31 +660,53 @@ const StudentReport = () => {
                 
                 {/* Filter Bar */}
                 <div className="questions-filter-bar">
-                  <button className="filter-btn active">
+                  <button 
+                    className={`filter-btn ${questionFilter === 'all' ? 'active' : ''}`}
+                    onClick={() => setQuestionFilter('all')}
+                  >
                     <i className="fas fa-layer-group"></i> All ({reportData.totalQuestions})
                   </button>
-                  <button className="filter-btn correct">
+                  <button 
+                    className={`filter-btn correct ${questionFilter === 'correct' ? 'active' : ''}`}
+                    onClick={() => setQuestionFilter('correct')}
+                  >
                     <i className="fas fa-check-circle"></i> Correct ({reportData.correctAnswers})
                   </button>
-                  <button className="filter-btn wrong">
+                  <button 
+                    className={`filter-btn wrong ${questionFilter === 'wrong' ? 'active' : ''}`}
+                    onClick={() => setQuestionFilter('wrong')}
+                  >
                     <i className="fas fa-times-circle"></i> Wrong ({reportData.wrongAnswers})
                   </button>
-                  <button className="filter-btn skipped">
+                  <button 
+                    className={`filter-btn skipped ${questionFilter === 'skipped' ? 'active' : ''}`}
+                    onClick={() => setQuestionFilter('skipped')}
+                  >
                     <i className="fas fa-forward"></i> Skipped ({reportData.skipped})
                   </button>
                 </div>
 
                 {/* Questions Grid - UPDATED */}
                 <div className="questions-grid">
-                  {reportData.questions.map((question, index) => (
-                    <div 
-                      key={question.id}
-                      className={`question-summary ${question.isCorrect ? 'correct' : question.studentAnswer ? 'wrong' : 'skipped'}`}
-                      onClick={() => {
-                        setSelectedQuestion(index);
-                        setActiveTab('solutions');
-                      }}
-                    >
+                  {reportData.questions
+                    .filter(q => {
+                      if (questionFilter === 'all') return true;
+                      if (questionFilter === 'correct') return q.isCorrect;
+                      if (questionFilter === 'wrong') return !q.isCorrect && q.studentAnswer;
+                      if (questionFilter === 'skipped') return !q.studentAnswer;
+                      return true;
+                    })
+                    .map((question) => {
+                      const originalIndex = reportData.questions.findIndex(q => q.id === question.id);
+                      return (
+                        <div 
+                          key={question.id}
+                          className={`question-summary ${question.isCorrect ? 'correct' : question.studentAnswer ? 'wrong' : 'skipped'}`}
+                          onClick={() => {
+                            setSelectedQuestion(originalIndex);
+                            setActiveTab('solutions');
+                          }}
+                        >
                       {/* Question Number Circle */}
                       <div className="question-number-circle">
                         Q{question.id}
@@ -582,7 +742,8 @@ const StudentReport = () => {
                         {question.type === 'voice' ? 'Voice' : 'MCQ'}
                       </div>
                     </div>
-                  ))}
+                  );
+                })}
                 </div>
 
                 {/* Statistics Summary */}
@@ -835,34 +996,6 @@ const StudentReport = () => {
                 <span>Retake similar quiz for practice</span>
               </li>
             </ul>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="action-card">
-            <h3><i className="fas fa-rocket"></i> Next Steps</h3>
-            <div className="action-buttons">
-              <button 
-                className="action-btn retake-btn"
-                onClick={() => navigate(`/attend/${quizId}`)}
-              >
-                <i className="fas fa-redo"></i> Retake Quiz
-              </button>
-              <button 
-                className="action-btn practice-btn"
-                onClick={() => navigate('/student/dashboard')}
-              >
-                <i className="fas fa-dumbbell"></i> More Practice
-              </button>
-              <button 
-                className="action-btn share-btn"
-                onClick={() => {
-                  navigator.clipboard.writeText(window.location.href);
-                  alert('Report link copied to clipboard!');
-                }}
-              >
-                <i className="fas fa-share"></i> Share Report
-              </button>
-            </div>
           </div>
 
           {/* Performance Chart Preview */}

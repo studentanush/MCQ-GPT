@@ -369,24 +369,7 @@ const Hero = () => {
               </div>
             </div>
             
-            {/* Hero Stats - MOVED LOWER WITH BETTER SPACING */}
-            <div className="hero-stats-spaced" ref={statsRef}>
-              <div className="stat-item">
-                <div className="stat-number" data-count="10000">0</div>
-                <div className="stat-label">Quizzes Created</div>
-                <div className="stat-glow"></div>
-              </div>
-              <div className="stat-item">
-                <div className="stat-number" data-count="50000">0</div>
-                <div className="stat-label">Active Users</div>
-                <div className="stat-glow"></div>
-              </div>
-              <div className="stat-item">
-                <div className="stat-number" data-count="98">0</div>
-                <div className="stat-label">Satisfaction Rate</div>
-                <div className="stat-glow"></div>
-              </div>
-            </div>
+
           </div>
         </div>
       </div>

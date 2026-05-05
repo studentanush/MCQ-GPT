@@ -535,32 +535,36 @@ const AttendQuiz = () => {
 
   if (loading) {
     return (
-      <div className="attend-quiz-loading">
-        <div className="loading-spinner"></div>
-        <h2>Loading Quiz...</h2>
-        <p>Preparing your test environment</p>
+      <div className="attend-quiz-container">
+        <div className="attend-quiz-loading">
+          <div className="loading-spinner"></div>
+          <h2>Loading Quiz...</h2>
+          <p>Preparing your test environment</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="attend-quiz-error">
-        <div className="error-icon">❌</div>
-        <h2>Error Loading Quiz</h2>
-        <p>{error}</p>
-        <button
-          className="retry-btn"
-          onClick={() => window.location.reload()}
-        >
-          Retry
-        </button>
-        <button
-          className="dashboard-btn"
-          onClick={() => navigate('/student/dashboard')}
-        >
-          Back to Dashboard
-        </button>
+      <div className="attend-quiz-container">
+        <div className="attend-quiz-error">
+          <div className="error-icon">❌</div>
+          <h2>Error Loading Quiz</h2>
+          <p>{error}</p>
+          <button
+            className="retry-btn"
+            onClick={() => window.location.reload()}
+          >
+            Retry
+          </button>
+          <button
+            className="dashboard-btn"
+            onClick={() => navigate('/student/dashboard')}
+          >
+            Back to Dashboard
+          </button>
+        </div>
       </div>
     );
   }
@@ -579,7 +583,7 @@ const AttendQuiz = () => {
   return (
 
 
-    <div>
+    <div className="attend-quiz-container">
 
       {!play && (
         <div className="waiting-lobby-container dark-bg p-6 md:p-10 rounded-xl shadow-2xl text-white">

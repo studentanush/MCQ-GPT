@@ -146,7 +146,7 @@ const StudentDashboard = () => {
 
   if (isLoading) {
     return (
-      <div className="educator-dashboard student-version loading">
+      <div className="student-dashboard loading">
         <div className="dashboard-content" style={{textAlign: 'center', padding: '100px'}}>
           <div className="logo-icon" style={{margin: '0 auto 30px', animation: 'pulse-glow 2s infinite'}}>
             🎓
@@ -234,7 +234,7 @@ const StudentDashboard = () => {
   }
 
   return (
-    <div className="educator-dashboard student-version">
+    <div className="student-dashboard">
       {/* Header */}
       <header className="dashboard-header">
         <div className="header-left">
