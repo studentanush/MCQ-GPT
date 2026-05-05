@@ -56,3 +56,39 @@ Google Gemini 2.5 Flash pricing is volume-based:
    - Bulk export to PDF/LMS.
 3. **Institutional API**:
    - Licensing the RAG pipeline to schools for internal training modules.
+
+---
+
+## 5. COCOMO II Software Estimation (Logical Logic Audit)
+
+A "Deep Logic" audit was performed. This count **excludes**:
+- All blank lines and comments.
+- All CSS/Styling files.
+- All Boilerplate (Imports, exports, closing braces, and brackets).
+- All Documentation (READMEs, logs).
+
+The project contains **9,007 Logical Lines of Code (9.01 KLOC)** of pure functional implementation (Algorithms, API routes, Database schemas, and AI RAG logic).
+
+### 5.1 Effort Calculation
+Using the COCOMO II Post-Architecture Model:
+- **Effort (E)** = $A \times (Size)^B \times EAF$
+- **Size**: 9.01 KLOC
+- **A (Constant)**: 2.94
+- **B (Scaling Factor)**: 1.1 (Nominal)
+- **EAF (Effort Adjustment Factor)**: 1.45 (Very High Complexity due to algorithmic density)
+
+**Estimated Effort: ~47.9 Person-Months**
+
+### 5.2 Schedule & Staffing (Team of 4)
+- **Total Effort**: 47.9 Person-Months
+- **Optimal Team Size**: ~4 Developers (Exact: 3.8)
+- **Time to Develop (TDEV)**: **~12 Months**
+- **Team Composition**: 1 Full-stack Lead, 1 ML/RAG Engineer, 1 Frontend/UX Designer, 1 QA/Backend Engineer.
+
+### 5.3 Economic Value
+If developed by a professional **Team of 4** with a nominal monthly salary of **$4,000/person**:
+- **Total Development Value**: **$191,600**
+- **Logical Code per Month**: ~188 LLOC / Person
+- **Project Velocity**: ~750 LLOC / Month (Team Total)
+
+*Note: The project size and complexity align perfectly with a 4-person development team. This staffing level allows for parallel development of the AI Engine and the Frontend UI while maintaining a 12-month delivery cycle.*
