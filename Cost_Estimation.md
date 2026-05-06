@@ -37,58 +37,41 @@ Our architecture uses **Decoupled Services**. The Python AI Engine is separated 
 - **Benefit**: We only pay for high-performance compute (Python RAG) when generation is happening.
 - **Memory Optimization**: By using **Chroma DB** (Vector DB), we minimize the data passed to the LLM, keeping costs fixed even as the source documents grow in size.
 
-### API Usage
-Google Gemini 2.5 Flash pricing is volume-based:
-- **Input**: $0.075 / 1 million tokens.
-- **Output**: $0.30 / 1 million tokens.
-- *At this rate, 1 million quiz questions would cost less than $10 in total API fees.*
-
 ---
 
 ## 4. Monetization Strategy (The "Business Case")
 
-1. **Freemium Model**:
-   - 5 Free AI Quiz Generations / Month for students.
-   - 10 Free Live Sessions / Month for educators.
-2. **Educator Pro ($9.99/mo)**:
-   - Unlimited generations.
-   - Advanced Analytics Dashboard.
-   - Bulk export to PDF/LMS.
-3. **Institutional API**:
-   - Licensing the RAG pipeline to schools for internal training modules.
+1. **Freemium Model**: 5 Free Generations / Month.
+2. **Educator Pro ($9.99/mo)**: Unlimited generations + Advanced Analytics.
+3. **Institutional API**: Licensing the RAG pipeline to schools.
 
 ---
 
-## 5. COCOMO II Software Estimation (Logical Logic Audit)
+## 5. COCOMO II Software Estimation (AI-Optimized Audit)
 
-A "Deep Logic" audit was performed. This count **excludes**:
-- All blank lines and comments.
-- All CSS/Styling files.
-- All Boilerplate (Imports, exports, closing braces, and brackets).
-- All Documentation (READMEs, logs).
+A "Deep Logic" audit was performed, excluding all blank lines, comments, and boilerplate. The project contains **9,007 Logical Lines of Code (9.01 KLOC)**.
 
-The project contains **9,007 Logical Lines of Code (9.01 KLOC)** of pure functional implementation (Algorithms, API routes, Database schemas, and AI RAG logic).
-
-### 5.1 Effort Calculation
-Using the COCOMO II Post-Architecture Model:
+### 5.1 Effort Calculation (AI-Assisted)
+Using the COCOMO II Post-Architecture Model, we adjusted the **EAF (Effort Adjustment Factor)** to account for **AI-Augmented Development (Very High TOOL Rating)**:
 - **Effort (E)** = $A \times (Size)^B \times EAF$
 - **Size**: 9.01 KLOC
 - **A (Constant)**: 2.94
 - **B (Scaling Factor)**: 1.1 (Nominal)
-- **EAF (Effort Adjustment Factor)**: 1.45 (Very High Complexity due to algorithmic density)
+- **Traditional EAF**: 1.45 (High complexity)
+- **AI-Optimized EAF**: **0.69** (Reduction due to AI-assisted logic & debugging)
 
-**Estimated Effort: ~47.9 Person-Months**
+**Estimated Human Effort: ~22.8 Person-Months**
 
 ### 5.2 Schedule & Staffing (Team of 4)
-- **Total Effort**: 47.9 Person-Months
-- **Optimal Team Size**: ~4 Developers (Exact: 3.8)
-- **Time to Develop (TDEV)**: **~12 Months**
-- **Team Composition**: 1 Full-stack Lead, 1 ML/RAG Engineer, 1 Frontend/UX Designer, 1 QA/Backend Engineer.
+- **Total Effort**: 22.8 Person-Months
+- **Team Size**: 4 Developers
+- **Actual Time to Develop**: **~5.7 Months**
+- **Project Velocity**: ~395 LLOC / Month (Per Person, AI-Augmented)
 
 ### 5.3 Economic Value
-If developed by a professional **Team of 4** with a nominal monthly salary of **$4,000/person**:
-- **Total Development Value**: **$191,600**
-- **Logical Code per Month**: ~188 LLOC / Person
-- **Project Velocity**: ~750 LLOC / Month (Team Total)
+If developed by a professional **Team of 4** using modern AI-assisted workflows:
+- **Total Asset Value**: **$191,600** (Traditional labor cost)
+- **Optimized Production Cost**: **$91,200** (Actual cost using AI efficiency)
+- **Efficiency Gain**: **52.4% reduction in development time/cost.**
 
-*Note: The project size and complexity align perfectly with a 4-person development team. This staffing level allows for parallel development of the AI Engine and the Frontend UI while maintaining a 12-month delivery cycle.*
+*Note: The AI-Optimized EAF (0.69) reflects the use of Large Language Models to accelerate RAG implementation and real-time state management. This allowed a team of 4 to deliver a project that would traditionally require over a year of development in less than 6 months.*
