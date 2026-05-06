@@ -586,67 +586,46 @@ const AttendQuiz = () => {
     <div className="attend-quiz-container">
 
       {!play && (
-        <div className="waiting-lobby-container dark-bg p-6 md:p-10 rounded-xl shadow-2xl text-white">
-
-          {/* Header Section */}
-          <div className="text-center mb-8 border-b border-gray-700 pb-4">
-            <h1 className="text-3xl font-extrabold text-indigo-400 tracking-wider">
-              Quiz Session: {quizId}
-            </h1>
-            <p className="text-xl mt-2 text-gray-400">
-              Waiting for Host to Start...
-            </p>
+        <div className="waiting-lobby-container glass-morphism">
+          <div className="lobby-header">
+            <div className="pulse-indicator"></div>
+            <h1>Quiz Session: <span className="highlight">{quizId}</span></h1>
+            <p className="lobby-subtitle">Waiting for host to initiate the challenge...</p>
           </div>
 
-          {/* Status Message */}
-          <div className="text-center mb-8 p-4 bg-gray-800 rounded-lg animate-pulse">
-            <i className="fas fa-clock text-yellow-400 text-2xl mr-3"></i>
-            <span className="text-lg font-semibold">
-              Please wait patiently!
-            </span>
+          <div className="lobby-stats-grid">
+            <div className="lobby-stat-card">
+              <span className="stat-number">{players.length}</span>
+              <span className="stat-label">Participants</span>
+            </div>
+            <div className="lobby-stat-card">
+              <span className="stat-icon">🎓</span>
+              <span className="stat-label">Status: Active</span>
+            </div>
           </div>
 
-          {/* Player Count */}
-          <div className="text-center mb-6">
-            <span className="text-5xl font-bold text-green-400">
-              {players.length}
-            </span>
-            <p className="text-gray-400 text-sm uppercase tracking-widest">
-              {players.length === 1 ? 'Student Joined' : 'Students Joined'}
-            </p>
-          </div>
-
-          {/* Player List Section */}
-          <div className="player-list-section max-h-64 overflow-y-auto pr-2">
-            <h3 className="text-lg font-semibold mb-3 text-gray-300 border-b border-gray-700 pb-2">
-              Participants ({players.length})
-            </h3>
-
-            {players.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {players.map((player, index) => (
-                  <div
-                    key={index}
-                    className="player-card bg-gray-700/50 p-2 rounded-lg flex items-center shadow-md hover:bg-gray-600 transition duration-300"
-                  >
-                    {/* Player Icon/Avatar (e.g., first letter of name) */}
-                    <div className="w-8 h-8 flex items-center justify-center bg-indigo-500 rounded-full text-xs font-bold mr-2 flex-shrink-0">
-                      {player.playerName.charAt(0).toUpperCase()}
-                    </div>
-                    {/* Player Name */}
-                    <span className="text-sm font-medium truncate" title={player.playerName}>
-                      {player.playerName}
-                    </span>
+          <div className="lobby-players-section">
+            <h3>Connected Learners</h3>
+            <div className="players-grid">
+              {players.length > 0 ? (
+                players.map((player, index) => (
+                  <div key={index} className="player-bubble" style={{animationDelay: `${index * 0.1}s`}}>
+                    <div className="avatar-small">{player.playerName.charAt(0).toUpperCase()}</div>
+                    <span className="player-name">{player.playerName}</span>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-center text-gray-500 italic mt-4">
-                You are the first one! Waiting for others...
-              </p>
-            )}
+                ))
+              ) : (
+                <div className="no-players">
+                  <div className="spinner-small"></div>
+                  <p>You're the first one here! Invite your friends.</p>
+                </div>
+              )}
+            </div>
           </div>
 
+          <div className="lobby-footer">
+            <p><i className="fas fa-info-circle"></i> Keep this tab open. The quiz will start automatically.</p>
+          </div>
         </div>
       )}
       {play && (
@@ -679,6 +658,13 @@ const AttendQuiz = () => {
           </header>
 
           {/* Main Content */}
+          <div className="quiz-progress-bar-container">
+            <div 
+              className="quiz-progress-bar-fill" 
+              style={{ width: `${(answeredCount / questions.length) * 100}%` }}
+            ></div>
+          </div>
+
           <div className="quiz-body">
             {/* Main Question Area */}
             <main className="question-area">
